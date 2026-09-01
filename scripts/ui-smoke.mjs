@@ -114,10 +114,18 @@ const send = (method, params = {}) =>
   });
 await send("Runtime.enable");
 await send("Page.enable");
+
 const evaluate = async (expr) => {
   const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true });
   return r.result?.value;
 };
+
+// 场景 0：渲染进程侧 IPC 桥完整性（preload → dispatch → 服务模块）
+console.log("[3b] 场景 0：渲染进程 IPC 桥断言");
+const envInfo = await evaluate(`window.memflowInvoke("get_api_env").then(r => r.build_profile + "/" + r.available.length)`);
+check("memflowInvoke('get_api_env') 经 preload 桥可达主进程", envInfo === "debug/3", envInfo);
+const winBridge = await evaluate(`typeof window.memflowWindow?.minimize === "function"`);
+check("memflowWindow 窗口控制桥存在", winBridge === true);
 
 // ---------- 场景 1：登录态启动 → 牌组列表 ----------
 console.log("[4/6] 场景 1：登录态启动，验证牌组列表渲染");
