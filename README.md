@@ -53,7 +53,7 @@ npm run rebuild:sqlite  # Electron ABI 变更后重建原生模块（build.npmRe
 - [x] M1.1 壳跑通（脚手架 + 全命令移植 + 类型检查 + 冒烟）
 - [x] M1.1+ IPC 参数归一化（camelCase→snake_case，对齐 Tauri v2 行为）
 - [x] TS 版 memflow-cli v1（status/auth/review/decks/cards/groups/quota，node:sqlite 回退）
-- [ ] M1.2 核心链路联调（复习/评分/outbox/409，按 docs/parity.md 验收）
+- [x] M1.2 核心链路 API 级集成测试全绿（`npm run test:m12` 17 项 + `test:409` 重算路径，真实本地后端）；UI 级按 docs/parity.md 人工验收
 - [ ] M1.3 功能 parity（市场/会员/多账号/快捷键）
 - [x] M1.4 electron-builder 配置（mac dmg/win nsis/linux AppImage，`--mac --dir` 产物已验证）+ 自动更新模块（复用 /api/release/desktop/latest，sha256 校验 + 系统对话框确认安装）
 - [ ] M1.4 正式发版：图标、代码签名、上传 OSS + release 模块登记（admin 操作）
