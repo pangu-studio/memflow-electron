@@ -140,14 +140,14 @@ export const commands: Record<string, Handler> = {
   // ---- cloud：decks ----
   cloud_list_decks: (a) => cloud.cloudListDecks(str(a.token)),
   cloud_create_deck: (a) =>
-    cloud.cloudCreateDeck(str(a.token), str(a.name), optStr(a.description), optStr(a.groupId)),
+    cloud.cloudCreateDeck(str(a.token), str(a.name), optStr(a.description), optStr(a.group_id)),
   cloud_update_deck: (a) =>
     cloud.cloudUpdateDeck(
       str(a.token),
       str(a.id),
       str(a.name),
       optStr(a.description),
-      optStr(a.groupId),
+      optStr(a.group_id),
       a.suspended as boolean | undefined
     ),
   cloud_delete_deck: (a) => cloud.cloudDeleteDeck(str(a.token), str(a.id)),
@@ -156,32 +156,32 @@ export const commands: Record<string, Handler> = {
   // ---- cloud：cards ----
   cloud_list_cards: (a) =>
     cloud.cloudListCards(str(a.token), {
-      deck_id: optStr(a.deckId),
+      deck_id: optStr(a.deck_id),
       keyword: optStr(a.keyword),
       tag: (a.tag as string[] | undefined) ?? undefined,
       page: a.page as number | undefined,
-      page_size: (a.pageSize as number | undefined) ?? (a.page_size as number | undefined),
+      page_size: a.page_size as number | undefined,
     }),
   cloud_create_card: (a) =>
     cloud.cloudCreateCard(
       str(a.token),
-      str(a.deckId),
+      str(a.deck_id),
       str(a.front),
       str(a.back),
-      optStr(a.cardType),
+      optStr(a.card_type),
       (a.tags as string[] | undefined) ?? undefined,
-      optNumArr(a.clozeNums)
+      optNumArr(a.cloze_nums)
     ),
   cloud_update_card: (a) =>
     cloud.cloudUpdateCard(
       str(a.token),
       str(a.id),
-      optStr(a.deckId),
+      optStr(a.deck_id),
       str(a.front),
       str(a.back),
-      str(a.cardType),
+      str(a.card_type),
       (a.tags as string[] | undefined) ?? undefined,
-      optNumArr(a.clozeNums)
+      optNumArr(a.cloze_nums)
     ),
   cloud_delete_card: (a) => cloud.cloudDeleteCard(str(a.token), str(a.id)),
 
@@ -199,9 +199,9 @@ export const commands: Record<string, Handler> = {
   cloud_delete_group: (a) => cloud.cloudDeleteGroup(str(a.token), str(a.id)),
 
   // ---- cloud：review / stats / settings ----
-  cloud_get_review_queue: (a) => cloud.cloudGetReviewQueue(str(a.token), optStr(a.deckId)),
+  cloud_get_review_queue: (a) => cloud.cloudGetReviewQueue(str(a.token), optStr(a.deck_id)),
   cloud_get_today_stats: (a) => cloud.cloudGetTodayStats(str(a.token)),
-  cloud_get_stats: (a) => cloud.cloudGetStats(str(a.token), optStr(a.deckId)),
+  cloud_get_stats: (a) => cloud.cloudGetStats(str(a.token), optStr(a.deck_id)),
   cloud_get_review_settings: (a) => cloud.cloudGetReviewSettings(str(a.token)),
   cloud_update_review_settings: (a) =>
     cloud.cloudUpdateReviewSettings(str(a.token), a.settings as Record<string, unknown>),
@@ -211,7 +211,7 @@ export const commands: Record<string, Handler> = {
     market.marketListDecks(str(a.token), {
       category: optStr(a.category),
       keyword: optStr(a.keyword),
-      pricing_type: optStr(a.pricingType),
+      pricing_type: optStr(a.pricing_type),
       sort: optStr(a.sort) ?? "sales",
       page: (a.page as number | undefined) ?? 1,
     }),
@@ -223,16 +223,16 @@ export const commands: Record<string, Handler> = {
   // ---- membership ----
   membership_list_plans: () => membership.membershipListPlans(),
   membership_get_status: (a) => membership.membershipGetStatus(str(a.token)),
-  membership_refresh_quota: (a) => membership.membershipRefreshQuota(str(a.token), str(a.userId)),
-  membership_get_quota_cache: (a) => membership.membershipGetQuotaCache(str(a.userId)),
+  membership_refresh_quota: (a) => membership.membershipRefreshQuota(str(a.token), str(a.user_id)),
+  membership_get_quota_cache: (a) => membership.membershipGetQuotaCache(str(a.user_id)),
   membership_subscribe_native: (a) =>
-    membership.membershipSubscribeNative(str(a.token), str(a.planId), str(a.period)),
+    membership.membershipSubscribeNative(str(a.token), str(a.plan_id), str(a.period)),
 
   // ---- token（灵光点） ----
   token_get_balance: (a) => token.tokenGetBalance(str(a.token)),
   token_list_packages: (a) => token.tokenListPackages(str(a.token)),
   token_list_transactions: (a) => token.tokenListTransactions(str(a.token), (a.page as number) ?? 1),
-  token_recharge_native: (a) => token.tokenRechargeNative(str(a.token), str(a.packageId)),
+  token_recharge_native: (a) => token.tokenRechargeNative(str(a.token), str(a.package_id)),
 };
 
 export function registerModuleCommands(): void {

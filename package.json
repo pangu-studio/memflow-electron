@@ -19,7 +19,8 @@
     "test:billing": "esbuild scripts/test-billing.ts --bundle --platform=node --format=cjs --outfile=out/test/billing.cjs --external:better-sqlite3 --loader:.md=text && node out/test/billing.cjs",
     "test:ui": "node scripts/ui-smoke.mjs",
     "test:market": "esbuild scripts/test-market.ts --bundle --platform=node --format=cjs --outfile=out/test/market.cjs --external:better-sqlite3 --loader:.md=text && node out/test/market.cjs",
-    "test:prod": "node scripts/prod-smoke.mjs"
+    "test:prod": "node scripts/prod-smoke.mjs",
+    "test:ipc": "esbuild scripts/test-ipc.ts --bundle --platform=node --format=cjs --outfile=out/test/ipc.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/ipc.cjs"
   },
   "dependencies": {
     "@nssai/scheduler": "^0.1.0",
