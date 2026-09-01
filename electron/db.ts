@@ -19,8 +19,11 @@ interface Driver {
   prepare(sql: string): Stmt;
 }
 
-/** node:sqlite 适配层（语句 API 对齐 better-sqlite3 子集） */
+/** node:sqlite 适配层（语句 API 对齐 better-sqlite3 子集）。仅纯 Node 可用：Electron 的 Node 构建不含 node:sqlite */
 function nodeSqliteDriver(file: string): Driver {
+  if (process.versions.electron) {
+    throw new Error("better-sqlite3 加载失败且 Electron 无 node:sqlite 内置模块，请运行 npm run rebuild:sqlite");
+  }
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
   const db = new DatabaseSync(file);
