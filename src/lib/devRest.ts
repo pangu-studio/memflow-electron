@@ -14,6 +14,7 @@ import { setApiBaseOverride, api, ApiHttpError } from "../../electron/http";
 import * as cloud from "../../electron/cloud";
 import * as market from "../../electron/market";
 import * as auth from "../../electron/auth";
+import { listMarketplacePlugins } from "../../electron/marketplaceApi";
 import { createScheduler, type ReviewEvent, type ReviewInput } from "@nssai/scheduler";
 
 const STORAGE_BASE = "memflow_api_base";
@@ -145,6 +146,9 @@ const restHandlers: Record<string, (a: Record<string, unknown>) => Promise<unkno
   cloud_get_stats: (a) => cloud.cloudGetStats(str(a.token), optStr(a.deck_id)),
   cloud_get_review_settings: (a) => cloud.cloudGetReviewSettings(str(a.token)),
   cloud_update_review_settings: (a) => cloud.cloudUpdateReviewSettings(str(a.token), a.settings as Record<string, unknown>),
+
+  // 插件市场（公开浏览；安装涉文件落盘走 IPC）
+  marketplace_list: (a) => listMarketplacePlugins(optStr(a.keyword), (a.page as number | undefined) ?? 1),
 
   // market 浏览（购买/导入涉及订单状态与本地落库，走 IPC 保持单实现）
   market_list_decks: (a) =>

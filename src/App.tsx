@@ -6,6 +6,7 @@ import DeckDetail from "./pages/DeckDetail";
 import Review from "./pages/Review";
 import ReviewSettings from "./pages/ReviewSettings";
 import PluginsPage from "./pages/Plugins";
+import PluginMarketPage from "./pages/PluginMarket";
 import { PluginRoute } from "./components/PluginSlot";
 import { initUIRegistry } from "./lib/uiRegistry";
 import Membership from "./pages/Membership";
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="/stats" element={<PluginRoute route="/stats"><Stats /></PluginRoute>} />
             <Route path="/settings" element={<ReviewSettings />} />
             <Route path="/plugins" element={<PluginsPage />} />
+            <Route path="/plugin-market" element={<PluginMarketPage />} />
             <Route path="/membership" element={<PluginRoute route="/membership"><Membership /></PluginRoute>} />
             <Route path="/market" element={<PluginRoute route="/market"><Market /></PluginRoute>} />
             <Route path="/wallet" element={<PluginRoute route="/wallet"><Wallet /></PluginRoute>} />

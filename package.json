@@ -22,7 +22,9 @@
     "test:prod": "node scripts/prod-smoke.mjs",
     "test:ipc": "esbuild scripts/test-ipc.ts --bundle --platform=node --format=cjs --outfile=out/test/ipc.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/ipc.cjs",
     "test:plugins": "esbuild scripts/test-plugins.ts --bundle --platform=node --format=cjs --outfile=out/test/plugins.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/plugins.cjs",
-    "test:ext": "esbuild scripts/test-external-plugins.ts --bundle --platform=node --format=cjs --outfile=out/test/ext.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-ext-test node out/test/ext.cjs"
+    "test:ext": "esbuild scripts/test-external-plugins.ts --bundle --platform=node --format=cjs --outfile=out/test/ext.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-ext-test node out/test/ext.cjs",
+    "test:mp": "esbuild scripts/test-marketplace.ts --bundle --platform=node --format=cjs --outfile=out/test/mp.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/mp.cjs",
+    "test:mp-install": "esbuild scripts/test-mp-install.ts --bundle --platform=node --format=cjs --outfile=out/test/mpi.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-mpi-test node out/test/mpi.cjs"
   },
   "dependencies": {
     "@nssai/scheduler": "^0.1.0",
@@ -34,6 +36,7 @@
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.0",
+    "@types/tar": "^6.1.13",
     "better-sqlite3": "^11.10.0",
     "cmdk": "^1.1.0",
     "cordis": "4.0.0-rc.9",
@@ -46,6 +49,7 @@
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "tar": "^7.5.22",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

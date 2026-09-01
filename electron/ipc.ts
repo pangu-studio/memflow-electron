@@ -14,6 +14,8 @@ import * as cloud from "./cloud";
 import * as cli from "./cli";
 import { initFeaturePlugins, listPlugins, setPluginEnabledCommand } from "./plugins";
 import { loadExternalPlugins } from "./externalPlugins";
+import { installPluginFromMarketplace } from "./marketplace";
+import { listMarketplacePlugins } from "./marketplaceApi";
 import { EVENT_CONTRIBUTIONS_CHANGED } from "./core/events";
 
 type Handler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -222,6 +224,14 @@ const initPromise = (async () => {
       setPluginEnabledCommand(runtime, str(a.name), Boolean(a.enabled))
     );
     ctx.registerCommand("get_contributions", () => runtime.contributions());
+    // 插件市场（M3.2）
+    ctx.registerCommand("marketplace_list", (a) =>
+      listMarketplacePlugins(optStr(a.keyword), (a.page as number | undefined) ?? 1)
+    );
+    ctx.registerCommand("marketplace_install", (a) =>
+      installPluginFromMarketplace(runtime, str(a.name))
+    );
+    ctx.registerContribution("navigation", { id: "pluginmarket", title: "插件市场", route: "/plugin-market" } as never);
     // builtin 恒为 trusted（权限全量）
     // 贡献点变化 → 广播全部窗口（renderer UI Registry 增量刷新）。
     // 纯 Node 环境（测试/CLI）无窗口，守卫跳过。

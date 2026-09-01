@@ -51,7 +51,7 @@ MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 ## Phase 3 插件市场（M3.1 已完成）
 
 - [x] M3.1 客户端外部插件加载：`plugins/` 目录扫描（manifest.json + main.cjs）、ed25519 验签（trusted_plugin_keys.json；dev 放行未签名+警告 / 打包拒绝）、权限白名单强制（外部插件 service() 按 manifest.permissions 门控 + permissions→inject 自动推导）、外部插件并入统一启停；test:ext 10 项 + 签名单测 5 项
-- [ ] M3.2 memflow-cloud marketplace 模块（D2 已定：扩展为独立模块）+ 浏览安装 UI
+- [x] M3.2 marketplace：cloud 模块（ent 表/创作者提交/admin 审核背书/registry ed25519 签名/公钥端点，[memflow-cloud#4](https://github.com/pangu-studio/memflow-cloud/pull/4)）+ 客户端一键安装（下载/验签/解压/挂载）+ /plugin-market 浏览页；test:mp 13 项 + test:mp-install 7 项
 - [ ] M3.3 开发者脚手架 + 示例插件
 
 ## 里程碑
