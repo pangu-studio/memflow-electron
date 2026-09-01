@@ -216,6 +216,11 @@ const afterCmdShiftB = await asideCount();
 check("⌘⇧B 打开右侧边栏", afterCmdShiftB === afterCmdB + 1);
 // 复原左侧边栏
 await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true, bubbles: true }))`);
+// ⌘R 跳转复习（TopBar 监听 memflow:navigate 自定义事件）
+await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "r", metaKey: true, bubbles: true }))`);
+await sleep(1200);
+const curPath = await evaluate("location.pathname");
+check("⌘R 跳转复习路由（path=/）", curPath === "/", curPath);
 // 主题：持久化存储切换 → 重载 → data-theme 生效
 await evaluate(`localStorage.setItem("memflow_theme", '"light"')`);
 await send("Page.reload", { ignoreCache: false });

@@ -17,7 +17,8 @@
     "test:m12": "esbuild scripts/test-m12.ts --bundle --platform=node --format=cjs --outfile=out/test/m12.cjs --external:better-sqlite3 --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-m12-test node out/test/m12.cjs",
     "test:409": "esbuild scripts/test-409.ts --bundle --platform=node --format=cjs --outfile=out/test/409.cjs --external:better-sqlite3 --loader:.md=text && node out/test/409.cjs",
     "test:billing": "esbuild scripts/test-billing.ts --bundle --platform=node --format=cjs --outfile=out/test/billing.cjs --external:better-sqlite3 --loader:.md=text && node out/test/billing.cjs",
-    "test:ui": "node scripts/ui-smoke.mjs"
+    "test:ui": "node scripts/ui-smoke.mjs",
+    "test:market": "esbuild scripts/test-market.ts --bundle --platform=node --format=cjs --outfile=out/test/market.cjs --external:better-sqlite3 --loader:.md=text && node out/test/market.cjs"
   },
   "dependencies": {
     "@nssai/scheduler": "^0.1.0",
