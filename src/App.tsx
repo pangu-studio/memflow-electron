@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import DeckList from "./pages/DeckList";
 import DeckDetail from "./pages/DeckDetail";
@@ -64,7 +64,7 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <CommandPalette />
       {/* Login dialog — 用于微信登录后的绑定邮箱流程、账号菜单"添加账号" */}
       <LoginDialog />
@@ -86,6 +86,6 @@ export default function App() {
       </Fragment>
       {/* Toast notifications */}
       <Toaster />
-    </BrowserRouter>
+    </HashRouter>
   );
 }

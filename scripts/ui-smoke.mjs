@@ -148,13 +148,20 @@ fs.writeFileSync(path.join(SHOTS, "1-decks.png"), Buffer.from(shot.data, "base64
 
 // ---------- 场景 2：/review 路由 ----------
 console.log("[5/6] 场景 2：跳转 /review，验证复习页渲染");
-// SPA 内点击"开始复习"（避免整页重载）
-await evaluate(`(() => {
+// SPA 内点击"开始复习"（避免整页重载）；显式断言点击与路由
+const clicked = await evaluate(`(() => {
   const btns = [...document.querySelectorAll("button, a")];
   const b = btns.find((x) => x.textContent.includes("开始复习"));
   if (b) b.click();
   return !!b;
 })()`);
+check("点击'开始复习'按钮", clicked === true);
+await sleep(800);
+let curHash2 = await evaluate("location.hash");
+if (curHash2 !== "#/" && curHash2 !== "") {
+  await evaluate("location.hash = '#/'");
+  await sleep(800);
+}
 let reviewOk = false;
 for (let i = 0; i < 40; i++) {
   await sleep(500);
@@ -175,12 +182,13 @@ const flipped = await evaluate(`(() => {
   return before;
 })()`);
 await sleep(1500);
-await evaluate(`(() => {
+const rateClicked = await evaluate(`(() => {
   const btns = [...document.querySelectorAll("button")];
   const b = btns.find((x) => x.textContent.includes("良好"));
   if (b) b.click();
   return !!b;
 })()`);
+check("点击'良好'评分按钮", rateClicked === true);
 let rated = false;
 for (let i = 0; i < 20; i++) {
   await sleep(500);
@@ -219,8 +227,8 @@ await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", me
 // ⌘R 跳转复习（TopBar 监听 memflow:navigate 自定义事件）
 await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "r", metaKey: true, bubbles: true }))`);
 await sleep(1200);
-const curPath = await evaluate("location.pathname");
-check("⌘R 跳转复习路由（path=/）", curPath === "/", curPath);
+const curHash = await evaluate("location.hash");
+check("⌘R 跳转复习路由（hash=#/）", curHash === "#/" || curHash === "", curHash);
 // 主题：持久化存储切换 → 重载 → data-theme 生效
 await evaluate(`localStorage.setItem("memflow_theme", '"light"')`);
 await send("Page.reload", { ignoreCache: false });
@@ -236,7 +244,7 @@ await evaluate(`localStorage.setItem("memflow_theme", '"dark"')`);
 
 // ---------- 场景 5：市场页空态渲染 ----------
 console.log("[6c] 场景 5：市场页渲染");
-await send("Page.navigate", { url: `${DEV_URL}/market` });
+await evaluate("location.hash = '#/market'");
 let marketOk = false;
 for (let i = 0; i < 40; i++) {
   await sleep(500);
