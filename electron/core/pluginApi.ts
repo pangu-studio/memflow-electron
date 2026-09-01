@@ -7,6 +7,9 @@
  */
 import type { ContributionPoint, Contributions } from "../../packages/plugin-api/src/index";
 
+/** 某贡献点键对应的条目类型 */
+type ContributionItem<K extends ContributionPoint> = NonNullable<Contributions[K]>[number];
+
 export type CmdHandler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
 export type Disposer = () => void | Promise<void>;
 
@@ -32,7 +35,7 @@ export interface PluginContext {
   /** 注册 IPC 命令（卸载自动注销；重名抛错） */
   registerCommand(name: string, handler: CmdHandler): void;
   /** 注册贡献点（卸载自动移除） */
-  registerContribution<K extends ContributionPoint>(point: K, item: Contributions[K] extends Array<infer T> ? T : never): void;
+  registerContribution<K extends ContributionPoint>(point: K, item: ContributionItem<K>): void;
   /** 消费核心服务（inject 声明的服务在此就绪） */
   service<T = unknown>(name: ServiceName): T;
 }
@@ -44,7 +47,10 @@ export interface PluginHandle {
 
 export interface RootRuntime {
   /** 挂载插件；返回就绪的 handle。inject 声明本插件需要的服务（未就绪会等待）。 */
-  mount(manifestName: string, apply: (ctx: PluginContext) => void | Promise<void>, inject?: string[]): Promise<PluginHandle>;
+  mount(manifest: import("../../packages/plugin-api/src/index").PluginManifest | string, apply: (ctx: PluginContext) => void | Promise<void>, inject?: string[]): Promise<PluginHandle>;
+  /** 卸载插件（dispose：命令/贡献点/事件自动清理） */
+  unmount(manifestName: string): Promise<void>;
+  isMounted(manifestName: string): boolean;
   /** 命令分发（IPC 与 CLI/test 共用入口） */
   dispatch(cmd: string, args: Record<string, unknown>): Promise<unknown>;
   /** 等待全部已挂载插件就绪（启动屏障） */

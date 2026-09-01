@@ -5,6 +5,7 @@ import DeckList from "./pages/DeckList";
 import DeckDetail from "./pages/DeckDetail";
 import Review from "./pages/Review";
 import ReviewSettings from "./pages/ReviewSettings";
+import PluginsPage from "./pages/Plugins";
 import Membership from "./pages/Membership";
 import Market from "./pages/Market";
 import Wallet from "./pages/Wallet";
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/decks/:id" element={<DeckDetail />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/settings" element={<ReviewSettings />} />
+            <Route path="/plugins" element={<PluginsPage />} />
             <Route path="/membership" element={<Membership />} />
             <Route path="/market" element={<Market />} />
             <Route path="/wallet" element={<Wallet />} />

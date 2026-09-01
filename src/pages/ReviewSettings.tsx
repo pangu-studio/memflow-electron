@@ -279,6 +279,12 @@ export default function ReviewSettings() {
           >
             {loading ? "保存中..." : "保存设置"}
           </button>
+          <a
+            href="#/plugins"
+            className="ml-4 text-sm opacity-60 hover:opacity-100 underline underline-offset-4"
+          >
+            插件管理 →
+          </a>
         </div>
 
         {/* ── 服务器环境面板（仅 release 包 + 5 次连击版本号后显示）── */}

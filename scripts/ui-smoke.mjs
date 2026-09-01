@@ -56,6 +56,26 @@ check("创建测试牌组+卡片", !!deck.id);
 console.log("[2/6] 启动 vite dev server 与 Electron");
 fs.mkdirSync(SHOTS, { recursive: true });
 const vite = spawn("npx", ["vite", "--port", "1420", "--strictPort"], { stdio: "ignore" });
+// 预热：等 dev server 起来并触发依赖预构建（cold optimize 期间页面空白）
+try {
+  for (let i = 0; i < 90; i++) {
+    await sleep(1000);
+    const home = await fetch(DEV_URL);
+    if (home.ok) {
+      const entry = await fetch(`${DEV_URL}/src/main.tsx`);
+      if (entry.ok) break;
+    }
+  }
+  await sleep(2000);
+} catch {}
+// 等后端健康（air 热重载窗口会导致 profile 拉取瞬时失败 → 前端清 token）
+for (let i = 0; i < 60; i++) {
+  try {
+    const r = await fetch(`${BASE}/api/release/desktop/latest`);
+    if (r.ok) break;
+  } catch {}
+  await sleep(1000);
+}
 const electron = spawn(
   "node_modules/.bin/electron",
   [".", "--no-sandbox", `--remote-debugging-port=${CDP_PORT}`],
@@ -131,13 +151,19 @@ check("memflowWindow 窗口控制桥存在", winBridge === true);
 console.log("[4/6] 场景 1：登录态启动，验证牌组列表渲染");
 await send("Page.navigate", { url: DEV_URL });
 let deckVisible = false;
-for (let round = 0; round < 2 && !deckVisible; round++) {
+for (let round = 0; round < 3 && !deckVisible; round++) {
   for (let i = 0; i < 60; i++) {
     await sleep(500);
     deckVisible = await evaluate(`document.body.innerText.includes(${JSON.stringify(deckName)})`);
     if (deckVisible) break;
+    // 掉登录页：token 被前端清掉（瞬时后端故障触发），重种 + 重载
+    const onLogin = await evaluate(`document.body.innerText.includes("微信扫码登录")`);
+    if (onLogin && round < 2) {
+      fs.writeFileSync(path.join(DATA_DIR, "auth_token.json"), JSON.stringify({ token, env: "test" }));
+      await send("Page.reload", { ignoreCache: true });
+      await sleep(3000);
+    }
   }
-  // vite 冷启动依赖优化期间页面可能空白，重载一次兜底
   if (!deckVisible) await send("Page.reload", { ignoreCache: true });
 }
 check("牌组列表渲染（含新建牌组名）", deckVisible);

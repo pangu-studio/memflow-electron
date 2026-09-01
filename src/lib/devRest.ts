@@ -80,6 +80,31 @@ async function trySubmitDirect(
 const str = (v: unknown): string => v as string;
 const optStr = (v: unknown): string | undefined => (v == null ? undefined : (v as string));
 
+/** 功能插件 → 其 dev 直连命令的归属映射（禁用后应与主进程一致地"未知命令"） */
+const PLUGIN_COMMANDS: Record<string, string> = {
+  market_list_decks: "com.memflow.market",
+  market_get_deck: "com.memflow.market",
+  market_preview: "com.memflow.market",
+};
+
+let enabledCache: Set<string> | null = null;
+async function ensureEnabled(): Promise<Set<string>> {
+  if (enabledCache) return enabledCache;
+  const bridge = window.memflowInvoke;
+  if (!bridge) return new Set();
+  try {
+    const list = (await bridge("list_plugins")) as { name: string; enabled: boolean }[];
+    enabledCache = new Set(list.filter((p) => p.enabled).map((p) => p.name));
+  } catch {
+    enabledCache = new Set(); // 保守：拿不到列表时不放行归属命令
+  }
+  return enabledCache;
+}
+
+export function invalidatePluginCache(): void {
+  enabledCache = null;
+}
+
 /** 纯 REST 命令表：命中则由 renderer 直连；未命中返回 undefined 走 IPC */
 const restHandlers: Record<string, (a: Record<string, unknown>) => Promise<unknown>> = {
   // auth（REST 部分）
@@ -157,8 +182,17 @@ const restHandlers: Record<string, (a: Record<string, unknown>) => Promise<unkno
  * 否则 → IPC（[ipc]）。未登录态等存储命令自然落到 IPC。
  */
 export async function devInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  // 插件管理命令会改变启停状态，透传后失效缓存
+  if (cmd === "list_plugins" || cmd === "set_plugin_enabled") {
+    invalidatePluginCache();
+    return window.memflowInvoke!<T>(cmd, args ?? {});
+  }
   const handler = restHandlers[cmd];
   if (handler) {
+    const owner = PLUGIN_COMMANDS[cmd];
+    if (owner && !(await ensureEnabled()).has(owner)) {
+      throw new Error(`未知命令: ${cmd}`);
+    }
     console.debug(`[rest] ${cmd}`, args ?? {});
     return (await handler(args ?? {})) as T;
   }

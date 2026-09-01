@@ -21,8 +21,10 @@ export type { RootRuntime } from "./pluginApi";
 import { EVENT_CONTRIBUTIONS_CHANGED } from "./events";
 import {
   CONTRIBUTION_POINTS,
+  validateManifest,
   type ContributionPoint,
   type Contributions,
+  type PluginManifest,
 } from "../../packages/plugin-api/src/index";
 
 // 服务实现体（纯模块，不依赖 cordis）
@@ -158,10 +160,7 @@ class PluginContextImpl implements PluginContext {
     this.effect(() => remove);
   }
 
-  registerContribution<K extends ContributionPoint>(
-    point: K,
-    item: Contributions[K] extends Array<infer T> ? T : never
-  ): void {
+  registerContribution<K extends ContributionPoint>(point: K, item: NonNullable<Contributions[K]>[number]): void {
     const remove = this.rt.addContribution(this.name, point, item as unknown as Record<string, unknown>);
     this.effect(() => remove);
   }
@@ -176,6 +175,7 @@ class RuntimeImpl implements RootRuntime {
   private readonly commands = new Map<string, { owner: string; handler: CmdHandler }>();
   private readonly contrib = new Map<ContributionPoint, Map<string, unknown[]>>();
   private readonly fibers: Promise<unknown>[] = [];
+  private readonly handles = new Map<string, PluginHandle>();
   private readonly pending: Promise<unknown>[] = [];
 
   constructor() {
@@ -190,10 +190,15 @@ class RuntimeImpl implements RootRuntime {
   }
 
   mount(
-    manifestName: string,
+    manifestOrName: PluginManifest | string,
     apply: (ctx: PluginContext) => void | Promise<void>,
     inject?: string[]
   ): Promise<PluginHandle> {
+    const manifest: PluginManifest =
+      typeof manifestOrName === "string"
+        ? { name: manifestOrName, version: "0.0.0", displayName: manifestOrName }
+        : validateManifest(manifestOrName);
+    const manifestName = manifest.name;
     const plugin = {
       inject,
       apply: (ctx: Context) => {
@@ -211,12 +216,25 @@ class RuntimeImpl implements RootRuntime {
     });
     this.fibers.push(ready);
     this.pending.push(ready);
-    return ready.then(() => ({
+    const handle: PluginHandle = {
       name: manifestName,
       dispose: async () => {
         await (fiber as { dispose?: () => Promise<void> }).dispose?.();
+        this.handles.delete(manifestName);
       },
-    }));
+    };
+    this.handles.set(manifestName, handle);
+    return ready.then(() => handle);
+  }
+
+  async unmount(manifestName: string): Promise<void> {
+    const h = this.handles.get(manifestName);
+    if (!h) throw new Error(`插件未加载: ${manifestName}`);
+    await h.dispose();
+  }
+
+  isMounted(manifestName: string): boolean {
+    return this.handles.has(manifestName);
   }
 
   registerCommand(owner: string, name: string, handler: CmdHandler): Disposer {

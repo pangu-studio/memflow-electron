@@ -11,10 +11,8 @@ import * as config from "./config";
 import * as auth from "./auth";
 import * as review from "./review";
 import * as cloud from "./cloud";
-import * as market from "./market";
-import * as membership from "./membership";
-import * as token from "./token";
 import * as cli from "./cli";
+import { initFeaturePlugins, listPlugins, setPluginEnabledCommand } from "./plugins";
 
 type Handler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
 
@@ -204,48 +202,27 @@ const commands: Record<string, Handler> = {
 
   // ---- cloud：review / stats / settings ----
   cloud_get_review_queue: (a) => cloud.cloudGetReviewQueue(str(a.token), optStr(a.deck_id)),
-  cloud_get_today_stats: (a) => cloud.cloudGetTodayStats(str(a.token)),
-  cloud_get_stats: (a) => cloud.cloudGetStats(str(a.token), optStr(a.deck_id)),
   cloud_get_review_settings: (a) => cloud.cloudGetReviewSettings(str(a.token)),
   cloud_update_review_settings: (a) =>
-    cloud.cloudUpdateReviewSettings(str(a.token), a.settings as Record<string, unknown>),
-
-  // ---- market ----
-  market_list_decks: (a) =>
-    market.marketListDecks(str(a.token), {
-      category: optStr(a.category),
-      keyword: optStr(a.keyword),
-      pricing_type: optStr(a.pricing_type),
-      sort: optStr(a.sort) ?? "sales",
-      page: (a.page as number | undefined) ?? 1,
-    }),
-  market_get_deck: (a) => market.marketGetDeck(str(a.token), str(a.id)),
-  market_preview: (a) => market.marketPreview(str(a.token), str(a.id)),
-  market_purchase: (a) => market.marketPurchase(str(a.token), str(a.id)),
-  market_import: (a) => market.marketImport(str(a.token), str(a.id)),
-
-  // ---- membership ----
-  membership_list_plans: () => membership.membershipListPlans(),
-  membership_get_status: (a) => membership.membershipGetStatus(str(a.token)),
-  membership_refresh_quota: (a) => membership.membershipRefreshQuota(str(a.token), str(a.user_id)),
-  membership_get_quota_cache: (a) => membership.membershipGetQuotaCache(str(a.user_id)),
-  membership_subscribe_native: (a) =>
-    membership.membershipSubscribeNative(str(a.token), str(a.plan_id), str(a.period)),
-
-  // ---- token（灵光点） ----
-  token_get_balance: (a) => token.tokenGetBalance(str(a.token)),
-  token_list_packages: (a) => token.tokenListPackages(str(a.token)),
-  token_list_transactions: (a) => token.tokenListTransactions(str(a.token), (a.page as number) ?? 1),
-  token_recharge_native: (a) => token.tokenRechargeNative(str(a.token), str(a.package_id)),
+    cloud.cloudUpdateReviewSettings(str(a.token), a.settings as Record<string, unknown>)
 };
 
 /** 运行时单例；模块加载即挂载内置命令插件（CLI/test 导入 dispatch 即可用） */
 const runtime: RootRuntime = createRuntime();
-const initPromise = runtime.mount("com.memflow.builtin", (ctx: import("./core/pluginApi").PluginContext) => {
-  for (const [name, handler] of Object.entries(commands)) {
-    ctx.registerCommand(name, handler);
-  }
-});
+const initPromise = (async () => {
+  await runtime.mount("com.memflow.builtin", (ctx: import("./core/pluginApi").PluginContext) => {
+    for (const [name, handler] of Object.entries(commands)) {
+      ctx.registerCommand(name, handler);
+    }
+    // 插件管理命令（builtin 归属）
+    ctx.registerCommand("list_plugins", () => listPlugins(runtime));
+    ctx.registerCommand("set_plugin_enabled", (a) =>
+      setPluginEnabledCommand(runtime, str(a.name), Boolean(a.enabled))
+    );
+    ctx.registerCommand("get_contributions", () => runtime.contributions());
+  });
+  await initFeaturePlugins(runtime);
+})();
 
 export async function initIpc(): Promise<void> {
   await initPromise;
