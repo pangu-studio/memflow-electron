@@ -47,8 +47,16 @@ MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 ```bash
 npm run dist          # 全平台安装包（release/）
 npm run rebuild:sqlite  # Electron ABI 变更后重建原生模块（build.npmRebuild 已关，electron-builder 不再自动重建）
+
+# 发版（上传 OSS + 登记 + 发布，一步完成）：
+MEMFLOW_ADMIN_EMAIL=... MEMFLOW_ADMIN_PASSWORD=... \
+  node scripts/publish-release.mjs --version 0.1.0 --platform darwin-aarch64 \
+  --file release/MemFlow-0.1.0-arm64.dmg --notes "首发"
 ```
 
+> dmg 打包依赖 macOS `hdiutil`，受限沙箱环境会失败——在正常终端执行即可。
+> 代码签名：未配置时产出未签名包（macOS 用户需右键打开）；配置 `CSC_LINK`/`CSC_KEY_PASSWORD` 环境变量后 electron-builder 自动签名。
+> Windows 安装包：`npx electron-builder --win nsis --x64`；Linux：`--linux AppImage`。
 
 - [x] M1.1 壳跑通（脚手架 + 全命令移植 + 类型检查 + 冒烟）
 - [x] M1.1+ IPC 参数归一化（camelCase→snake_case，对齐 Tauri v2 行为）
