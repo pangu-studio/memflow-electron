@@ -4,7 +4,7 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
 import { initDb } from "./db";
-import { dispatch, registerModuleCommands } from "./ipc";
+import { dispatch, initIpc } from "./ipc";
 import { autoUpdateOnLaunch } from "./update";
 
 let mainWindow: BrowserWindow | null = null;
@@ -38,8 +38,8 @@ function createWindow(): void {
   }
 }
 
-function registerIpc(): void {
-  registerModuleCommands();
+async function registerIpc(): Promise<void> {
+  await initIpc();
   ipcMain.handle("memflow:invoke", async (_event, payload: { cmd: string; args: Record<string, unknown> }) => {
     return dispatch(payload.cmd, payload.args ?? {});
   });
@@ -60,7 +60,7 @@ function registerIpc(): void {
 
 app.whenReady().then(() => {
   initDb();
-  registerIpc();
+  void registerIpc();
   createWindow();
   // 打包版启动后自动检查更新（复用云端 /api/release/desktop/latest）
   if (app.isPackaged) void autoUpdateOnLaunch();

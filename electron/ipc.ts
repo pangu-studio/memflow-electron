@@ -4,11 +4,11 @@
  * 参数解包与前端调用处及 Rust command 签名一一对应（显式注册）。
  */
 import { app, dialog, BrowserWindow } from "electron";
+import { createRuntime, type RootRuntime } from "./core/runtime";
 import fs from "node:fs";
 import { createScheduler } from "@nssai/scheduler";
 import * as config from "./config";
 import * as auth from "./auth";
-import * as authStore from "./authStore";
 import * as review from "./review";
 import * as cloud from "./cloud";
 import * as market from "./market";
@@ -94,8 +94,8 @@ const optStr = (v: unknown): string | undefined => (v == null ? undefined : (v a
 const optNumArr = (v: unknown): number[] | undefined =>
   v == null ? undefined : (v as number[]);
 
-/** 命令表：snake_case 命令名 → 处理函数（显式注册，参数名与前端调用一致） */
-export const commands: Record<string, Handler> = {
+/** 命令表：snake_case 命令名 → 处理函数（经插件注册到运行时，卸载自动注销） */
+const commands: Record<string, Handler> = {
   // ---- FSRS / review ----
   review_card: reviewCard,
   submit_review: (a) =>
@@ -124,14 +124,14 @@ export const commands: Record<string, Handler> = {
   auth_email_login: (a) => auth.authEmailLogin(str(a.email), str(a.password)),
   auth_bind_email: (a) => auth.authBindEmail(str(a.token), str(a.email), str(a.password)),
   auth_get_profile: (a) => auth.authGetProfile(str(a.token)),
-  auth_save_token: (a) => authStore.authSaveToken(str(a.token)),
-  auth_load_token: () => authStore.authLoadToken(),
-  auth_clear_token: () => authStore.authClearToken(),
-  auth_list_accounts: () => authStore.authListAccounts(),
+  auth_save_token: (a) => auth.authSaveToken(str(a.token)),
+  auth_load_token: () => auth.authLoadToken(),
+  auth_clear_token: () => auth.authClearToken(),
+  auth_list_accounts: () => auth.authListAccounts(),
   auth_register_account: (a) =>
-    authStore.authRegisterAccount(str(a.token), a.profile as Parameters<typeof authStore.authRegisterAccount>[1]),
-  auth_switch_account: (a) => authStore.authSwitchAccount(str(a.key)),
-  auth_remove_account: (a) => authStore.authRemoveAccount(str(a.key)),
+    auth.authRegisterAccount(str(a.token), a.profile as Parameters<typeof auth.authRegisterAccount>[1]),
+  auth_switch_account: (a) => auth.authSwitchAccount(str(a.key)),
+  auth_remove_account: (a) => auth.authRemoveAccount(str(a.key)),
 
   // ---- api env ----
   get_api_env: () => getApiEnv(),
@@ -239,8 +239,16 @@ export const commands: Record<string, Handler> = {
   token_recharge_native: (a) => token.tokenRechargeNative(str(a.token), str(a.package_id)),
 };
 
-export function registerModuleCommands(): void {
-  // 所有命令已在上表显式注册；保留此函数以兼容 main.ts 的调用点。
+/** 运行时单例；模块加载即挂载内置命令插件（CLI/test 导入 dispatch 即可用） */
+const runtime: RootRuntime = createRuntime();
+const initPromise = runtime.mount("com.memflow.builtin", (ctx: import("./core/pluginApi").PluginContext) => {
+  for (const [name, handler] of Object.entries(commands)) {
+    ctx.registerCommand(name, handler);
+  }
+});
+
+export async function initIpc(): Promise<void> {
+  await initPromise;
 }
 
 /** camelCase → snake_case（Tauri v2 对 invoke 参数的自动转换，Electron 桥需手动对齐） */
@@ -254,10 +262,7 @@ function normalizeArgs(args: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-/** 统一的 IPC 入口：异常原样抛出（Electron IPC 保留 Error.message） */
+/** 统一入口：归一化参数（Tauri v2 行为对齐）后委托运行时分发 */
 export async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unknown> {
-  const handler = commands[cmd];
-  if (!handler) throw new Error(`未知命令: ${cmd}`);
-  // 前端传 camelCase（Tauri v2 会自动转 snake_case），这里统一归一化
-  return handler(normalizeArgs(args));
+  return runtime.dispatch(cmd, normalizeArgs(args));
 }
