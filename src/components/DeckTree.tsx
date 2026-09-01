@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import * as Collapsible from "@radix-ui/react-collapsible";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useDecksStore } from "../stores/decks";
 import { useGroupsStore } from "../stores/groups";
+import { useToastStore } from "../stores/toast";
 import CreateGroupDialog from "./CreateGroupDialog";
 import CreateDeckDialog from "./CreateDeckDialog";
 import MoveDeckDialog from "./MoveDeckDialog";
@@ -22,7 +24,6 @@ function buildTree(
       id: g.id,
       name: g.name,
       type: "group",
-      path: `?group=${g.id}`,
       children: [],
     });
   }
@@ -44,7 +45,6 @@ function buildTree(
       id: d.id,
       name: d.name,
       type: "deck",
-      path: `/decks/${d.id}`,
       count: d.due_count,
       suspended: d.suspended,
     };
@@ -55,17 +55,137 @@ function buildTree(
     }
   }
 
+  // Aggregate due counts for groups (含子分组)
+  const aggregateDue = (node: TreeNodeData): number => {
+    let sum = node.type === "deck" ? node.count ?? 0 : 0;
+    for (const c of node.children ?? []) sum += aggregateDue(c);
+    node.count = sum;
+    return sum;
+  };
+  for (const root of rootNodes) aggregateDue(root);
+
   return rootNodes;
 }
 
-/* ── Context menu state ──────────────────── */
-interface ContextMenuState {
-  visible: boolean;
-  x: number;
-  y: number;
-  type: "group" | "deck" | "sidebar";
+/* ── Row actions passed down the tree ────── */
+interface TreeActions {
+  onNewRootGroup: () => void;
+  onNewSubgroup: (groupId: string) => void;
+  onNewDeckInGroup: (groupId: string) => void;
+  onRenameGroup: (groupId: string) => void;
+  onDeleteGroup: (groupId: string, groupName: string) => void;
+  onReviewDeck: (deckId: string) => void;
+  onToggleSuspend: (deckId: string) => void;
+  onMoveDeck: (deckId: string) => void;
+  onRenameDeck: (deckId: string) => void;
+  onDeleteDeck: (deckId: string, deckName: string) => void;
+}
+
+type NodeKind = "sidebar" | "group" | "deck";
+
+/* ── Shared context menu (Radix) ─────────── */
+function MenuItem({
+  className = "",
+  ...props
+}: ContextMenu.ContextMenuItemProps) {
+  return (
+    <ContextMenu.Item
+      className={`px-3 py-1.5 text-sm outline-none cursor-default transition-colors text-[var(--text-normal)] data-[highlighted]:bg-[var(--background-modifier-hover)] ${className}`}
+      {...props}
+    />
+  );
+}
+
+function MenuSeparator() {
+  return (
+    <ContextMenu.Separator className="my-0.5 h-px bg-[var(--background-modifier-border)]" />
+  );
+}
+
+const menuContentClass =
+  "z-50 w-44 py-1 rounded-lg bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] shadow-xl";
+
+function NodeContextMenu({
+  type,
+  id,
+  name,
+  suspended,
+  actions,
+  children,
+}: {
+  type: NodeKind;
   id: string;
   name: string;
+  suspended?: boolean;
+  actions: TreeActions;
+  children: React.ReactNode;
+}) {
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className={menuContentClass}>
+          {type === "group" ? (
+            <>
+              <MenuItem onSelect={() => actions.onNewSubgroup(id)}>
+                📂 新建子分组
+              </MenuItem>
+              <MenuItem onSelect={() => actions.onNewDeckInGroup(id)}>
+                📄 新建卡牌组
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem onSelect={() => actions.onRenameGroup(id)}>
+                ✏️ 重命名
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                className="text-red-400"
+                onSelect={() => actions.onDeleteGroup(id, name)}
+              >
+                🗑️ 删除
+              </MenuItem>
+            </>
+          ) : type === "deck" ? (
+            <>
+              <MenuItem onSelect={() => actions.onReviewDeck(id)}>
+                📖 复习此牌组
+              </MenuItem>
+              <MenuItem onSelect={() => actions.onToggleSuspend(id)}>
+                {suspended ? "▶️ 恢复复习" : "⏸️ 暂停复习"}
+              </MenuItem>
+              <MenuItem onSelect={() => actions.onMoveDeck(id)}>
+                📂 移动到其他分组
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem onSelect={() => actions.onRenameDeck(id)}>
+                ✏️ 重命名
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                className="text-red-400"
+                onSelect={() => actions.onDeleteDeck(id, name)}
+              >
+                🗑️ 删除
+              </MenuItem>
+            </>
+          ) : null}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  );
+}
+
+/* ── Due count badge ─────────────────────── */
+function DueBadge({ count, isGroup }: { count?: number; isGroup: boolean }) {
+  if (count === undefined || count <= 0) return null;
+  return (
+    <span
+      className="mr-1 text-xs text-[var(--text-faint)] tabular-nums shrink-0"
+      title={isGroup ? `该分组（含子分组）今日待复习 ${count} 张` : `今日待复习 ${count} 张`}
+    >
+      {count}
+    </span>
+  );
 }
 
 /* ── Main component ──────────────────────── */
@@ -73,7 +193,9 @@ export default function DeckTree() {
   const { decks, loadDecks, deleteDeck, setDeckSuspended } = useDecksStore();
   const navigate = useNavigate();
   const { groups, loadGroups, deleteGroup } = useGroupsStore();
-  const [tree, setTree] = useState<TreeNodeData[]>([]);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const tree = useMemo(() => buildTree(groups, decks), [groups, decks]);
 
   // Group dialog state
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -114,116 +236,82 @@ export default function DeckTree() {
   } | null>(null);
   const [deleteDeckError, setDeleteDeckError] = useState("");
 
-  // Context menu
-  const [ctxMenu, setCtxMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    type: "group",
-    id: "",
-    name: "",
-  });
-
   useEffect(() => {
     loadGroups();
     loadDecks();
   }, []);
 
-  useEffect(() => {
-    setTree(buildTree(groups, decks));
-  }, [groups, decks]);
-
-  // Close context menu on any click outside
-  useEffect(() => {
-    function close() {
-      setCtxMenu((prev) => ({ ...prev, visible: false }));
-    }
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
-
-  /* ── Context menu handlers ──────────────── */
-  function handleGroupContextMenu(
-    e: React.MouseEvent,
-    groupId: string,
-    groupName: string
-  ) {
-    e.preventDefault();
-    e.stopPropagation();
-    setCtxMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      type: "group",
-      id: groupId,
-      name: groupName,
-    });
-  }
-
-  function handleDeckContextMenu(
-    e: React.MouseEvent,
-    deckId: string,
-    deckName: string
-  ) {
-    e.preventDefault();
-    e.stopPropagation();
-    setCtxMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      type: "deck",
-      id: deckId,
-      name: deckName,
-    });
-  }
-
-  function handleSidebarContextMenu(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setCtxMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      type: "sidebar",
-      id: "",
-      name: "",
-    });
-  }
-
-  /* ── Group menu actions ─────────────────── */
-  function handleNewSubgroup() {
-    setCreateParentId(ctxMenu.id);
-    setShowCreateGroup(true);
-  }
-
-  function handleNewRootGroup() {
-    setCreateParentId(undefined);
-    setShowCreateGroup(true);
-  }
-
-  function handleNewDeckInGroup() {
-    setCreateDeckGroupId(ctxMenu.id);
-    setShowCreateDeck(true);
-  }
-
-  function handleRenameGroup() {
-    const g = groups.find((g) => g.id === ctxMenu.id);
-    if (g) {
-      setEditGroup({
-        id: g.id,
-        name: g.name,
-        description: g.description || "",
-        parent_id: g.parent_id,
+  /* ── Tree row actions ───────────────────── */
+  const actions: TreeActions = {
+    onNewRootGroup: () => {
+      setCreateParentId(undefined);
+      setShowCreateGroup(true);
+    },
+    onNewSubgroup: (groupId) => {
+      setCreateParentId(groupId);
+      setShowCreateGroup(true);
+    },
+    onNewDeckInGroup: (groupId) => {
+      setCreateDeckGroupId(groupId);
+      setShowCreateDeck(true);
+    },
+    onRenameGroup: (groupId) => {
+      const g = groups.find((g) => g.id === groupId);
+      if (g) {
+        setEditGroup({
+          id: g.id,
+          name: g.name,
+          description: g.description || "",
+          parent_id: g.parent_id,
+        });
+        setShowEditGroup(true);
+      }
+    },
+    onDeleteGroup: (groupId, groupName) => {
+      setDeleteGroupTarget({ id: groupId, name: groupName });
+      setDeleteGroupError("");
+      setShowDeleteGroup(true);
+    },
+    onReviewDeck: (deckId) => {
+      navigate(`/?deck=${deckId}`);
+    },
+    onToggleSuspend: async (deckId) => {
+      const d = decks.find((d) => d.id === deckId);
+      if (!d) return;
+      try {
+        await setDeckSuspended(deckId, !d.suspended);
+      } catch (e) {
+        addToast("error", `操作失败：${String(e)}`);
+      }
+    },
+    onMoveDeck: (deckId) => {
+      const d = decks.find((d) => d.id === deckId);
+      if (!d) return;
+      setMoveDeckTarget({
+        id: d.id,
+        name: d.name,
+        groupId: d.group_id,
       });
-      setShowEditGroup(true);
-    }
-  }
-
-  function handleDeleteGroupClick() {
-    setDeleteGroupTarget({ id: ctxMenu.id, name: ctxMenu.name });
-    setDeleteGroupError("");
-    setShowDeleteGroup(true);
-  }
+      setShowMoveDeck(true);
+    },
+    onRenameDeck: (deckId) => {
+      const d = decks.find((d) => d.id === deckId);
+      if (d) {
+        setEditDeck({
+          id: d.id,
+          name: d.name,
+          description: d.description || "",
+          group_id: d.group_id,
+        });
+        setShowEditDeck(true);
+      }
+    },
+    onDeleteDeck: (deckId, deckName) => {
+      setDeleteDeckTarget({ id: deckId, name: deckName });
+      setDeleteDeckError("");
+      setShowDeleteDeck(true);
+    },
+  };
 
   async function handleDeleteGroup() {
     if (!deleteGroupTarget) return;
@@ -234,45 +322,6 @@ export default function DeckTree() {
     } catch (e) {
       setDeleteGroupError(String(e));
     }
-  }
-
-  /* ── Deck menu actions ──────────────────── */
-  function handleReviewDeck() {
-    navigate(`/?deck=${ctxMenu.id}`);
-  }
-
-  async function handleToggleSuspend() {
-    const d = decks.find((d) => d.id === ctxMenu.id);
-    await setDeckSuspended(ctxMenu.id, !d?.suspended);
-  }
-
-  function handleMoveDeck() {
-    const d = decks.find((d) => d.id === ctxMenu.id);
-    setMoveDeckTarget({
-      id: ctxMenu.id,
-      name: ctxMenu.name,
-      groupId: d?.group_id,
-    });
-    setShowMoveDeck(true);
-  }
-
-  function handleRenameDeck() {
-    const d = decks.find((d) => d.id === ctxMenu.id);
-    if (d) {
-      setEditDeck({
-        id: d.id,
-        name: d.name,
-        description: d.description || "",
-        group_id: d.group_id,
-      });
-      setShowEditDeck(true);
-    }
-  }
-
-  function handleDeleteDeckClick() {
-    setDeleteDeckTarget({ id: ctxMenu.id, name: ctxMenu.name });
-    setDeleteDeckError("");
-    setShowDeleteDeck(true);
   }
 
   async function handleDeleteDeck() {
@@ -287,110 +336,27 @@ export default function DeckTree() {
   }
 
   return (
-    <div
-      className="flex flex-col flex-1 min-h-0"
-      onContextMenu={handleSidebarContextMenu}
-    >
-      {/* Tree */}
-      <nav className="flex-1 py-1 min-h-0">
-        {tree.map((item) => (
-          <TreeNode
-            key={item.id}
-            item={item}
-            depth={0}
-            onGroupContextMenu={handleGroupContextMenu}
-            onDeckContextMenu={handleDeckContextMenu}
-          />
-        ))}
-        {tree.length === 0 && groups.length === 0 && (
-          <p className="text-xs text-[var(--text-faint)] text-center py-8">
-            暂无分组，右键此区域新建
-          </p>
-        )}
-      </nav>
-
-      {/* Context menu */}
-      {ctxMenu.visible && (
-        <div
-          className="fixed z-50 w-44 py-1 rounded-lg bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] shadow-xl"
-          style={{ left: ctxMenu.x, top: ctxMenu.y }}
-        >
-          {ctxMenu.type === "sidebar" ? (
-            <button
-              className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-              onClick={handleNewRootGroup}
-            >
-              📁 新建分组
-            </button>
-          ) : ctxMenu.type === "group" ? (
-            <>
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleNewSubgroup}
-              >
-                📂 新建子分组
-              </button>
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleNewDeckInGroup}
-              >
-                📄 新建卡牌组
-              </button>
-              <div className="border-t border-[var(--background-modifier-border)] my-0.5" />
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleRenameGroup}
-              >
-                ✏️ 重命名
-              </button>
-              <div className="border-t border-[var(--background-modifier-border)] my-0.5" />
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleDeleteGroupClick}
-              >
-                🗑️ 删除
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleReviewDeck}
-              >
-                📖 复习此牌组
-              </button>
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleToggleSuspend}
-              >
-                {decks.find((d) => d.id === ctxMenu.id)?.suspended
-                  ? "▶️ 恢复复习"
-                  : "⏸️ 暂停复习"}
-              </button>
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleMoveDeck}
-              >
-                📂 移动到其他分组
-              </button>
-              <div className="border-t border-[var(--background-modifier-border)] my-0.5" />
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleRenameDeck}
-              >
-                ✏️ 重命名
-              </button>
-              <div className="border-t border-[var(--background-modifier-border)] my-0.5" />
-              <button
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-[var(--background-modifier-hover)] transition-colors"
-                onClick={handleDeleteDeckClick}
-              >
-                🗑️ 删除
-              </button>
-            </>
-          )}
-        </div>
-      )}
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Tree；空白区域右键 = 新建分组 */}
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
+          <nav aria-label="牌组树" className="flex-1 py-1 min-h-0">
+            {tree.map((item) => (
+              <TreeNode key={item.id} item={item} depth={0} actions={actions} />
+            ))}
+            {tree.length === 0 && (
+              <p className="text-xs text-[var(--text-faint)] text-center py-8">
+                暂无牌组或分组，右键此区域新建
+              </p>
+            )}
+          </nav>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className={menuContentClass}>
+            <MenuItem onSelect={actions.onNewRootGroup}>📁 新建分组</MenuItem>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
 
       {/* Create Group Dialog */}
       <CreateGroupDialog
@@ -507,115 +473,117 @@ export default function DeckTree() {
   );
 }
 
-/* ── Single node (recursive) ────────────── */
+/* ── Single node (recursive) ──────────────
+ * 统一行布局：所有行 paddingLeft = 8 + depth*20，
+ * 并为 chevron 预留固定 20px 列，保证任意层级图标对齐。 */
 function TreeNode({
   item,
   depth,
-  onGroupContextMenu,
-  onDeckContextMenu,
+  actions,
 }: {
   item: TreeNodeData;
   depth: number;
-  onGroupContextMenu: (e: React.MouseEvent, groupId: string, groupName: string) => void;
-  onDeckContextMenu: (e: React.MouseEvent, deckId: string, deckName: string) => void;
+  actions: TreeActions;
 }) {
   const [open, setOpen] = useState(true);
-  const hasChildren = item.children && item.children.length > 0;
+  const hasChildren = !!item.children?.length;
+  const padLeft = 8 + depth * 20;
 
+  /* 叶子行：牌组 = 导航链接；空分组 = 静态行 */
   if (!hasChildren) {
+    if (item.type === "group") {
+      return (
+        <NodeContextMenu type="group" id={item.id} name={item.name} actions={actions}>
+          <div
+            className="flex items-center gap-1 py-1.5 pr-1 text-sm rounded mx-1 text-[var(--text-muted)]"
+            style={{ paddingLeft: padLeft }}
+            title={item.name}
+          >
+            <span className="w-5 shrink-0" aria-hidden="true" />
+            <span className="shrink-0 text-sm opacity-50">📁</span>
+            <span className="truncate flex-1">
+              {item.name}
+              <span className="ml-1 text-xs text-[var(--text-faint)]">（空）</span>
+            </span>
+            <DueBadge count={item.count} isGroup />
+          </div>
+        </NodeContextMenu>
+      );
+    }
+
     return (
-      <NavLink
-        to={item.path}
-        className={({ isActive }) =>
-          `flex items-center gap-2 py-1.5 text-sm rounded mx-1 cursor-pointer
-           ${
-             isActive
-               ? "bg-[var(--background-modifier-active)] text-[var(--text-normal)]"
-               : "text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-normal)]"
-           }`
-        }
-        style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: "8px" }}
-        onContextMenu={(e) => {
-          if (item.type === "group") {
-            onGroupContextMenu(e, item.id, item.name);
-          } else {
-            onDeckContextMenu(e, item.id, item.name);
-          }
-        }}
+      <NodeContextMenu
+        type="deck"
+        id={item.id}
+        name={item.name}
+        suspended={item.suspended}
+        actions={actions}
       >
-        <span className="shrink-0 text-sm opacity-50">
-          {item.type === "deck" ? "📄" : "📁"}
-        </span>
-        <span className="truncate flex-1">
-          {item.name}
-          {item.suspended && <span className="ml-1 opacity-60">⏸️</span>}
-        </span>
-        {item.count !== undefined && item.count > 0 && (
-          <span className="ml-auto text-xs text-[var(--text-faint)] tabular-nums shrink-0">
-            {item.count}
+        <NavLink
+          to={`/decks/${item.id}`}
+          title={item.name}
+          className={({ isActive }) =>
+            `relative flex items-center gap-1 py-1.5 pr-1 text-sm rounded mx-1 ${
+              item.suspended ? "opacity-60" : ""
+            } ${
+              isActive
+                ? `bg-[var(--background-modifier-active)] text-[var(--text-normal)]
+                   before:absolute before:left-[3px] before:top-1/2 before:h-4 before:w-[3px]
+                   before:-translate-y-1/2 before:rounded-full before:bg-[var(--interactive-accent)]`
+                : "text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] hover:text-[var(--text-normal)]"
+            }`
+          }
+          style={{ paddingLeft: padLeft }}
+        >
+          <span className="w-5 shrink-0" aria-hidden="true" />
+          <span className="shrink-0 text-sm opacity-50">📄</span>
+          <span className="truncate flex-1">
+            {item.name}
+            {item.suspended && <span className="ml-1 opacity-60">⏸️</span>}
           </span>
-        )}
-      </NavLink>
+          <DueBadge count={item.count} isGroup={false} />
+        </NavLink>
+      </NodeContextMenu>
     );
   }
 
+  /* 分组行（有子节点）：整行点击 = 折叠/展开，chevron 仅作指示器 */
   return (
-    <Collapsible.Root open={open} onOpenChange={setOpen}>
-      {/* Trigger row */}
-      <div
-        className="flex items-center gap-0.5 mx-1 rounded cursor-pointer
-                   hover:bg-[var(--background-modifier-hover)]"
-        style={{ paddingLeft: `${8 + depth * 16}px` }}
-        onContextMenu={(e) => {
-          if (item.type === "group") {
-            onGroupContextMenu(e, item.id, item.name);
-          } else {
-            onDeckContextMenu(e, item.id, item.name);
-          }
-        }}
-      >
-        <Collapsible.Trigger asChild>
-          <button
-            className="p-0.5 text-[var(--text-faint)] hover:text-[var(--text-normal)] shrink-0"
-            aria-label={open ? "折叠" : "展开"}
-          >
-            <Chevron open={open} />
-          </button>
-        </Collapsible.Trigger>
-        <NavLink
-          to={item.path}
-          className={({ isActive }) =>
-            `flex items-center gap-2 py-1.5 text-sm flex-1 min-w-0 rounded
-             ${
-               isActive
-                 ? "text-[var(--text-normal)]"
-                 : "text-[var(--text-muted)]"
-             }`
-          }
+    <NodeContextMenu type="group" id={item.id} name={item.name} actions={actions}>
+      <Collapsible.Root open={open} onOpenChange={setOpen}>
+        <div
+          className="flex items-center rounded mx-1 hover:bg-[var(--background-modifier-hover)]"
+          style={{ paddingLeft: padLeft }}
         >
-          <span className="shrink-0 text-sm opacity-50">📁</span>
-          <span className="truncate">{item.name}</span>
-          {item.count !== undefined && item.count > 0 && (
-            <span className="ml-auto mr-2 text-xs text-[var(--text-faint)] tabular-nums shrink-0">
-              {item.count}
-            </span>
-          )}
-        </NavLink>
-      </div>
-
-      {/* Children */}
-      <Collapsible.Content>
-        {item.children?.map((child) => (
-          <TreeNode
-            key={child.id}
-            item={child}
-            depth={depth + 1}
-            onGroupContextMenu={onGroupContextMenu}
-            onDeckContextMenu={onDeckContextMenu}
-          />
-        ))}
-      </Collapsible.Content>
-    </Collapsible.Root>
+          <Collapsible.Trigger asChild>
+            <button
+              type="button"
+              className="flex flex-1 items-center gap-1 min-w-0 py-1.5 pr-1 text-sm text-left
+                         text-[var(--text-muted)] hover:text-[var(--text-normal)] transition-colors"
+            >
+              <span className="w-5 shrink-0 flex items-center justify-center text-[var(--text-faint)]">
+                <Chevron open={open} />
+              </span>
+              <span className="shrink-0 text-sm opacity-50">📁</span>
+              <span className="truncate flex-1" title={item.name}>
+                {item.name}
+              </span>
+              <DueBadge count={item.count} isGroup />
+            </button>
+          </Collapsible.Trigger>
+        </div>
+        <Collapsible.Content>
+          {item.children!.map((child) => (
+            <TreeNode
+              key={child.id}
+              item={child}
+              depth={depth + 1}
+              actions={actions}
+            />
+          ))}
+        </Collapsible.Content>
+      </Collapsible.Root>
+    </NodeContextMenu>
   );
 }
 
