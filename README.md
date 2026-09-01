@@ -69,7 +69,7 @@ MEMFLOW_ADMIN_EMAIL=... MEMFLOW_ADMIN_PASSWORD=... \
 - [x] M2.1 适配层（pluginApi/runtime/events，唯一直 import cordis 隔离 runtime.ts，cordis 4.0.0-rc.9 pin）+ @nssai/plugin-api 类型包（packages/plugin-api，8 单测）+ CommandRegistry + 7 核心服务；61 项既有自动化零修改全绿
 - [x] M2.2 四个可禁用功能插件（com.memflow.market/stats/membership/markdown-extras）+ plugins.json 启停 + /plugins 插件管理页 + test:plugins 12 项
 - [x] M2.3 UI Registry：贡献点广播 + 动态路由收敛（PluginRoute 兜底页）+ PluginSlot/PluginErrorBoundary；ui-smoke 21 项全绿
-- [ ] @nssai/plugin-api 发 npm 0.1.0（npm pack 校验通过，待用户 OTP：`cd packages/plugin-api && npm publish`）
+- [x] @nssai/plugin-api@0.1.0 已发布 npm（CJS/ESM 实测可用）
 - 设计文档：../docs/design/cordis-plugin-architecture.md；Phase 3 立项：../docs/design/plugin-marketplace-phase3.md
 
 - [x] M1.1 壳跑通（脚手架 + 全命令移植 + 类型检查 + 冒烟）
