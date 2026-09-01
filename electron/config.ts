@@ -1,28 +1,41 @@
 /**
  * 应用配置（移植自 memflow-desktop/src-tauri/src/config.rs）。
  * release 与 dev 数据目录隔离；api_env 覆盖存 api_config.json（GUI 与 CLI 共享）。
+ * 零 electron 依赖：CLI 与 GUI 共用本模块（路径经 MEMFLOW_DATA_DIR 可覆盖）。
  */
-import { app } from "electron";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+
+/** 是否为打包产物（等价 electron app.isPackaged；CLI 下恒为 true 语义） */
+export function isPackaged(): boolean {
+  return !(process as unknown as { defaultApp?: string | boolean }).defaultApp;
+}
+
+/** 平台默认应用数据根（对齐 Electron app.getPath('appData') 的取值） */
+function platformAppData(): string {
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support");
+  }
+  if (process.platform === "win32") {
+    return process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
+  }
+  return process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share");
+}
 
 /** 应用数据根目录：dev 使用独立 -dev 目录，不与生产版共享配置/token/数据库 */
 export function appDataRoot(): string {
   // 便携式/测试覆盖：MEMFLOW_DATA_DIR 环境变量优先（CLI 与测试用）
   if (process.env.MEMFLOW_DATA_DIR) return process.env.MEMFLOW_DATA_DIR;
-  const dirName = app.isPackaged
-    ? "com.pangustudio.desktop"
-    : "com.pangustudio.desktop-dev";
-  // Electron 的 app.getPath('userData') 已按 app.name 隔离；此处沿用 Rust 版
-  // 目录命名以便将来做数据迁移时能对上号。userData 本身已满足隔离诉求。
-  return path.join(app.getPath("appData"), dirName);
+  const dirName = isPackaged() ? "com.pangustudio.desktop" : "com.pangustudio.desktop-dev";
+  return path.join(platformAppData(), dirName);
 }
 
 export const PROD_API_BASE = "https://apis.memflow.com.cn";
 export const DEV_API_BASE = "http://localhost:8080";
 
 export function compileTimeDefault(): string {
-  return app.isPackaged ? PROD_API_BASE : DEV_API_BASE;
+  return isPackaged() ? PROD_API_BASE : DEV_API_BASE;
 }
 
 export interface Environment {

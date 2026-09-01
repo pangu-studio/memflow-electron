@@ -1,33 +1,83 @@
 /**
- * 本地 SQLite（better-sqlite3，WAL）。
- * 移植自 memflow-desktop/src-tauri/src/db.rs：
- *   - sync_meta：应用级 KV（quota_cache:{user_id}、cli_install 等）
- *   - pending_reviews：评分 outbox（write-ahead，user_id 账号隔离）
- * 表结构与迁移（user_version 1→2）和 Rust 版完全一致，数据文件可互换。
+ * 本地 SQLite。驱动自适应：
+ * - Electron 主进程：better-sqlite3（原生性能，随 Electron ABI 重建）
+ * - 纯 Node（memflow-cli / 测试）：node:sqlite（Node ≥22.5 内置，零原生依赖）
+ * 表结构与迁移（user_version 1→2）和 Rust 版（db.rs）完全一致，数据文件可互换。
  */
-import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataRoot } from "./config";
 import type { ReviewEvent } from "@nssai/scheduler";
 
-let db: Database.Database | null = null;
+interface Stmt {
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+  run(...params: unknown[]): { changes: number };
+}
+interface Driver {
+  exec(sql: string): void;
+  prepare(sql: string): Stmt;
+}
 
-export function initDb(): Database.Database {
+/** node:sqlite 适配层（语句 API 对齐 better-sqlite3 子集） */
+function nodeSqliteDriver(file: string): Driver {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
+  const db = new DatabaseSync(file);
+  return {
+    exec: (sql) => db.exec(sql),
+    prepare: (sql) => {
+      const stmt = db.prepare(sql);
+      return {
+        get: (...p) => stmt.get(...(p as [])),
+        all: (...p) => stmt.all(...(p as [])) as unknown[],
+        run: (...p) => {
+          const r = stmt.run(...(p as []));
+          return { changes: Number(r.changes) };
+        },
+      };
+    },
+  };
+}
+
+function loadDriver(file: string): Driver {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Database = require("better-sqlite3") as any;
+    const db = new Database(file);
+    return {
+      exec: (sql) => db.exec(sql),
+      prepare: (sql) => db.prepare(sql),
+    };
+  } catch {
+    // ABI 不匹配 / 纯 Node 环境：回退内置驱动
+    return nodeSqliteDriver(file);
+  }
+}
+
+let db: Driver | null = null;
+
+export function initDb(): Driver {
   if (db) return db;
   const dir = appDataRoot();
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "memflow.db");
-  const d = new Database(file);
-  d.pragma("journal_mode = WAL");
-  d.pragma("foreign_keys = ON");
+  const d = loadDriver(file);
+  d.exec("PRAGMA journal_mode = WAL");
+  d.exec("PRAGMA foreign_keys = ON");
   migrate(d);
   db = d;
   return d;
 }
 
-function migrate(d: Database.Database): void {
-  const version = d.pragma("user_version", { simple: true }) as number;
+function pragmaUserVersion(d: Driver): number {
+  const row = d.prepare("PRAGMA user_version").get() as Record<string, number>;
+  return Object.values(row)[0];
+}
+
+function migrate(d: Driver): void {
+  const version = pragmaUserVersion(d);
   if (version < 1) {
     d.exec(`CREATE TABLE IF NOT EXISTS sync_meta (
       key TEXT PRIMARY KEY,
@@ -39,13 +89,13 @@ function migrate(d: Database.Database): void {
       payload TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`);
-    d.pragma("user_version = 1");
+    d.exec("PRAGMA user_version = 1");
   }
   if (version < 2) {
     d.exec(`ALTER TABLE pending_reviews ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
     d.exec(`CREATE INDEX IF NOT EXISTS idx_pending_reviews_user ON pending_reviews(user_id)`);
     d.exec(`DELETE FROM sync_meta WHERE key = 'quota_cache'`);
-    d.pragma("user_version = 2");
+    d.exec("PRAGMA user_version = 2");
   }
 }
 

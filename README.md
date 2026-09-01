@@ -45,6 +45,8 @@ MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 ## 里程碑
 
 - [x] M1.1 壳跑通（脚手架 + 全命令移植 + 类型检查 + 冒烟）
-- [ ] M1.2 核心链路联调（复习/评分/outbox/409）
+- [x] M1.1+ IPC 参数归一化（camelCase→snake_case，对齐 Tauri v2 行为）
+- [x] TS 版 memflow-cli v1（status/auth/review/decks/cards/groups/quota，node:sqlite 回退）
+- [ ] M1.2 核心链路联调（复习/评分/outbox/409，按 docs/parity.md 验收）
 - [ ] M1.3 功能 parity（市场/会员/多账号/快捷键）
 - [ ] M1.4 electron-builder 三平台发布 + release 模块登记

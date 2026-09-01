@@ -32,14 +32,14 @@ async function exportDeckWithDialog(args: Record<string, unknown>): Promise<stri
 
 function getApiEnv() {
   return {
-    build_profile: app.isPackaged ? "release" : "debug",
-    can_switch: app.isPackaged,
+    build_profile: config.isPackaged() ? "release" : "debug",
+    can_switch: config.isPackaged(),
     available: config.builtinEnvironments(),
   };
 }
 
 function setApiEnv(args: Record<string, unknown>): void {
-  if (!app.isPackaged) throw new Error("此功能仅在发布版可用");
+  if (!config.isPackaged()) throw new Error("此功能仅在发布版可用");
   config.saveOverride(args.env as string, args.custom_url as string | undefined);
 }
 
@@ -239,9 +239,21 @@ export function registerModuleCommands(): void {
   // 所有命令已在上表显式注册；保留此函数以兼容 main.ts 的调用点。
 }
 
+/** camelCase → snake_case（Tauri v2 对 invoke 参数的自动转换，Electron 桥需手动对齐） */
+function camelToSnakeKey(s: string): string {
+  return s.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase());
+}
+
+function normalizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(args)) out[camelToSnakeKey(k)] = v;
+  return out;
+}
+
 /** 统一的 IPC 入口：异常原样抛出（Electron IPC 保留 Error.message） */
 export async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unknown> {
   const handler = commands[cmd];
   if (!handler) throw new Error(`未知命令: ${cmd}`);
-  return handler(args);
+  // 前端传 camelCase（Tauri v2 会自动转 snake_case），这里统一归一化
+  return handler(normalizeArgs(args));
 }
