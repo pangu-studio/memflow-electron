@@ -6,6 +6,8 @@ import DeckDetail from "./pages/DeckDetail";
 import Review from "./pages/Review";
 import ReviewSettings from "./pages/ReviewSettings";
 import PluginsPage from "./pages/Plugins";
+import { PluginRoute } from "./components/PluginSlot";
+import { initUIRegistry } from "./lib/uiRegistry";
 import Membership from "./pages/Membership";
 import Market from "./pages/Market";
 import Wallet from "./pages/Wallet";
@@ -20,6 +22,7 @@ import { useKeyboard } from "./hooks/useKeyboard";
 import Toaster from "./components/Toaster";
 
 export default function App() {
+  initUIRegistry();
   const { init, isLoggedIn, accountEpoch } = useAuthStore();
   const [ready, setReady] = useState(false);
 
@@ -77,12 +80,12 @@ export default function App() {
             <Route path="/" element={<Review />} />
             <Route path="/decks" element={<DeckList />} />
             <Route path="/decks/:id" element={<DeckDetail />} />
-            <Route path="/stats" element={<Stats />} />
+            <Route path="/stats" element={<PluginRoute route="/stats"><Stats /></PluginRoute>} />
             <Route path="/settings" element={<ReviewSettings />} />
             <Route path="/plugins" element={<PluginsPage />} />
-            <Route path="/membership" element={<Membership />} />
-            <Route path="/market" element={<Market />} />
-            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/membership" element={<PluginRoute route="/membership"><Membership /></PluginRoute>} />
+            <Route path="/market" element={<PluginRoute route="/market"><Market /></PluginRoute>} />
+            <Route path="/wallet" element={<PluginRoute route="/wallet"><Wallet /></PluginRoute>} />
           </Route>
         </Routes>
       </Fragment>

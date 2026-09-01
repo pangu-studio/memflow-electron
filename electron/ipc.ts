@@ -13,6 +13,7 @@ import * as review from "./review";
 import * as cloud from "./cloud";
 import * as cli from "./cli";
 import { initFeaturePlugins, listPlugins, setPluginEnabledCommand } from "./plugins";
+import { EVENT_CONTRIBUTIONS_CHANGED } from "./core/events";
 
 type Handler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
 
@@ -220,6 +221,20 @@ const initPromise = (async () => {
       setPluginEnabledCommand(runtime, str(a.name), Boolean(a.enabled))
     );
     ctx.registerCommand("get_contributions", () => runtime.contributions());
+    // 贡献点变化 → 广播全部窗口（renderer UI Registry 增量刷新）。
+    // 纯 Node 环境（测试/CLI）无窗口，守卫跳过。
+    ctx.on(EVENT_CONTRIBUTIONS_CHANGED, () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { BrowserWindow: BW } = require("electron") as typeof import("electron");
+        const table = runtime.contributions();
+        for (const win of BW?.getAllWindows() ?? []) {
+          if (!win.isDestroyed()) win.webContents.send("memflow:event", { name: EVENT_CONTRIBUTIONS_CHANGED, payload: table });
+        }
+      } catch {
+        // no-op（非 Electron 环境）
+      }
+    });
   });
   await initFeaturePlugins(runtime);
 })();

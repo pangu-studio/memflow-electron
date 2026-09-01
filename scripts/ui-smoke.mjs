@@ -282,6 +282,37 @@ check("市场页渲染（列表或空态）", marketOk);
 shot = await send("Page.captureScreenshot", { format: "png" });
 fs.writeFileSync(path.join(SHOTS, "4-market.png"), Buffer.from(shot.data, "base64"));
 
+// ---------- 场景 6d：插件路由收敛（禁用 market → 兜底页 → 恢复） ----------
+console.log("[6d] 场景 6d：插件路由收敛");
+await evaluate("location.hash = '#/market'");
+await sleep(1000);
+const marketVisible = await evaluate("document.body.innerText.includes('卡片市场') || document.body.innerText.includes('搜索卡组')");
+check("启用态 /market 正常渲染", marketVisible);
+await evaluate(`window.memflowInvoke("set_plugin_enabled", { name: "com.memflow.market", enabled: false })`);
+await sleep(1500);
+await evaluate("location.hash = '#/decks'"); // 离开再回来触发重渲染
+await sleep(600);
+await evaluate("location.hash = '#/market'");
+let fallbackVisible = false;
+for (let i = 0; i < 16; i++) {
+  await sleep(500);
+  fallbackVisible = await evaluate("document.body.innerText.includes('插件已禁用')");
+  if (fallbackVisible) break;
+}
+check("禁用 market 后 /market 收敛到兜底页", fallbackVisible);
+await evaluate(`window.memflowInvoke("set_plugin_enabled", { name: "com.memflow.market", enabled: true })`);
+await sleep(1500);
+await evaluate("location.hash = '#/decks'");
+await sleep(600);
+await evaluate("location.hash = '#/market'");
+let restored = false;
+for (let i = 0; i < 16; i++) {
+  await sleep(500);
+  restored = await evaluate("document.body.innerText.includes('卡片市场')");
+  if (restored) break;
+}
+check("重新启用后 /market 恢复", restored);
+
 const fatal = consoleErrors.filter((e) => !/favicon|net::ERR|preload|sandbox|Gpu|gpu/i.test(e));
 check("无致命控制台错误", fatal.length === 0, fatal.slice(0, 3).join(" | "));
 

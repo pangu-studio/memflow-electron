@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld("memflowInvoke", (cmd: string, args?: Record<str
   ipcRenderer.invoke("memflow:invoke", { cmd, args })
 );
 
+contextBridge.exposeInMainWorld("memflowOnEvent", (handler: (msg: { name: string; payload: unknown }) => void) => {
+  ipcRenderer.on("memflow:event", (_e, msg) => handler(msg));
+});
+
 contextBridge.exposeInMainWorld("memflowWindow", {
   minimize: () => ipcRenderer.invoke("memflow:window", "minimize"),
   toggleMaximize: () => ipcRenderer.invoke("memflow:window", "toggleMaximize"),

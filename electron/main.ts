@@ -43,6 +43,7 @@ async function registerIpc(): Promise<void> {
   ipcMain.handle("memflow:invoke", async (_event, payload: { cmd: string; args: Record<string, unknown> }) => {
     return dispatch(payload.cmd, payload.args ?? {});
   });
+
   // 窗口控制（TopBar 自定义按钮）
   ipcMain.handle("memflow:window", (_e, action: string) => {
     const win = mainWindow;
