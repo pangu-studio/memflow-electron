@@ -1,0 +1,8 @@
+{
+  "name": "com.memflow.examples.hello",
+  "version": "1.0.0",
+  "displayName": "Hello 示例插件",
+  "description": "插件市场示例：注册一个问候命令，演示最小插件形态",
+  "main": "./main.cjs",
+  "permissions": []
+}

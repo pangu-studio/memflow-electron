@@ -24,7 +24,9 @@
     "test:plugins": "esbuild scripts/test-plugins.ts --bundle --platform=node --format=cjs --outfile=out/test/plugins.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/plugins.cjs",
     "test:ext": "esbuild scripts/test-external-plugins.ts --bundle --platform=node --format=cjs --outfile=out/test/ext.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-ext-test node out/test/ext.cjs",
     "test:mp": "esbuild scripts/test-marketplace.ts --bundle --platform=node --format=cjs --outfile=out/test/mp.cjs --external:better-sqlite3 --external:electron --loader:.md=text && node out/test/mp.cjs",
-    "test:mp-install": "esbuild scripts/test-mp-install.ts --bundle --platform=node --format=cjs --outfile=out/test/mpi.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-mpi-test node out/test/mpi.cjs"
+    "test:mp-install": "esbuild scripts/test-mp-install.ts --bundle --platform=node --format=cjs --outfile=out/test/mpi.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-mpi-test node out/test/mpi.cjs",
+    "build:plugin-cli": "esbuild packages/plugin-cli/src/index.ts --bundle --platform=node --format=cjs --outfile=out/cli/memflow-plugin.cjs --external:better-sqlite3",
+    "test:plugin-cli": "npm run build:plugin-cli && esbuild scripts/test-plugin-cli.ts --bundle --platform=node --format=cjs --outfile=out/test/pcli.cjs --external:better-sqlite3 --external:electron --loader:.md=text && MEMFLOW_DATA_DIR=/private/tmp/memflow-pcli-data node out/test/pcli.cjs"
   },
   "dependencies": {
     "@nssai/scheduler": "^0.1.0",

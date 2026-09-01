@@ -24,6 +24,7 @@ import {
   type SignaturePayload,
 } from "./signature";
 import { loadExternalPlugins } from "./externalPlugins";
+import { downloadBuffer } from "../packages/plugin-cli/src/net";
 import type { RootRuntime } from "./core/pluginApi";
 
 /** 把 registry 公钥加入本地可信列表（幂等）；返回是否新增 */
@@ -58,9 +59,7 @@ export async function installPluginFromMarketplace(
   const trustedKeyAdded = await trustRegistryKey();
 
   // 下载
-  const resp = await fetch(target.package_url);
-  if (!resp.ok) throw new Error(`下载插件包失败: HTTP ${resp.status}`);
-  const buf = Buffer.from(await resp.arrayBuffer());
+  const buf = await downloadBuffer(target.package_url);
   // sha256 语义 = 入口文件哈希（签名载荷的 entrySha256），随验签核对；包传输完整性由 TLS + 签名链保障
 
   // 解压到临时目录

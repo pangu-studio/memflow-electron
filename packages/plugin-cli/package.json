@@ -1,0 +1,17 @@
+{
+  "name": "@nssai/plugin-cli",
+  "version": "0.1.0",
+  "description": "MemFlow plugin developer CLI: init / pack / submit to marketplace.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "memflow-plugin": "./dist/index.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}
