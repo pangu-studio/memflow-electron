@@ -47,8 +47,8 @@
 
 ## 系统与体验（M1.3）
 
-- [x] 快捷键：⌘P 命令面板（自动化）；⌘R/⌘B/⬜ 待人工
-- [ ] 主题：默认暗黑、浅色切换
+- [x] 快捷键：⌘P / ⌘B / ⌘⇧B（自动化）；⌘R 待人工
+- [x] 主题：默认暗黑、浅色切换（light 主题 data-theme + CSS 变量自动化验证）
 - [x] TopBar 窗口控制（最小化/最大化/关闭）
 - [ ] CLI 安装状态展示（未安装态）
 - [x] CLI（TS 版）：`memflow status` / `auth status` / `decks list` / `review queue` 与桌面端共享 token 存储

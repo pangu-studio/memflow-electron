@@ -201,6 +201,48 @@ check("⌘P 命令面板触发", paletteVisible);
 shot = await send("Page.captureScreenshot", { format: "png" });
 fs.writeFileSync(path.join(SHOTS, "3-command-palette.png"), Buffer.from(shot.data, "base64"));
 
+// ---------- 场景 4：快捷键（⌘B/⌘⇧B/⌘R）与主题切换 ----------
+console.log("[6b] 场景 4：快捷键与主题");
+const asideCount = () => evaluate(`document.querySelectorAll("aside").length`);
+const before = await asideCount();
+await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true, bubbles: true }))`);
+await sleep(600);
+const afterCmdB = await asideCount();
+const leftClosed = await evaluate(`localStorage.getItem("memflow_left_sidebar_open")`);
+check("⌘B 关闭左侧边栏", afterCmdB === before - 1 && leftClosed === "false", `aside ${before}→${afterCmdB}`);
+await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true, shiftKey: true, bubbles: true }))`);
+await sleep(600);
+const afterCmdShiftB = await asideCount();
+check("⌘⇧B 打开右侧边栏", afterCmdShiftB === afterCmdB + 1);
+// 复原左侧边栏
+await evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true, bubbles: true }))`);
+// 主题：持久化存储切换 → 重载 → data-theme 生效
+await evaluate(`localStorage.setItem("memflow_theme", '"light"')`);
+await send("Page.reload", { ignoreCache: false });
+let themeOk = false;
+for (let i = 0; i < 40; i++) {
+  await sleep(500);
+  const t = await evaluate(`document.documentElement.getAttribute("data-theme")`);
+  const bg = await evaluate(`getComputedStyle(document.documentElement).getPropertyValue("--background-primary").trim()`);
+  if (t === "light" && bg && !bg.includes("26") /* 暗色主背景约 #1e1e1e */) { themeOk = true; break; }
+}
+check("主题切换 light 生效（data-theme + CSS 变量）", themeOk);
+await evaluate(`localStorage.setItem("memflow_theme", '"dark"')`);
+
+// ---------- 场景 5：市场页空态渲染 ----------
+console.log("[6c] 场景 5：市场页渲染");
+await send("Page.navigate", { url: `${DEV_URL}/market` });
+let marketOk = false;
+for (let i = 0; i < 40; i++) {
+  await sleep(500);
+  const txt = await evaluate("document.body.innerText");
+  marketOk = txt.includes("市场") || txt.includes("精选") || txt.includes("空") || txt.includes("暂无");
+  if (marketOk) break;
+}
+check("市场页渲染（列表或空态）", marketOk);
+shot = await send("Page.captureScreenshot", { format: "png" });
+fs.writeFileSync(path.join(SHOTS, "4-market.png"), Buffer.from(shot.data, "base64"));
+
 const fatal = consoleErrors.filter((e) => !/favicon|net::ERR|preload|sandbox|Gpu|gpu/i.test(e));
 check("无致命控制台错误", fatal.length === 0, fatal.slice(0, 3).join(" | "));
 
