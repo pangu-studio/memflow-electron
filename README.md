@@ -48,6 +48,12 @@ MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 - 本地数据库表结构与 Rust 版（user_version 2）一致，数据文件可互换
 - 原生支付（membership_subscribe_native / token_recharge_native）暂为明确报错，待接网页支付
 
+## Phase 3 插件市场（M3.1 已完成）
+
+- [x] M3.1 客户端外部插件加载：`plugins/` 目录扫描（manifest.json + main.cjs）、ed25519 验签（trusted_plugin_keys.json；dev 放行未签名+警告 / 打包拒绝）、权限白名单强制（外部插件 service() 按 manifest.permissions 门控 + permissions→inject 自动推导）、外部插件并入统一启停；test:ext 10 项 + 签名单测 5 项
+- [ ] M3.2 memflow-cloud marketplace 模块（D2 已定：扩展为独立模块）+ 浏览安装 UI
+- [ ] M3.3 开发者脚手架 + 示例插件
+
 ## 里程碑
 
 ```bash

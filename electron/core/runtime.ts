@@ -25,6 +25,7 @@ import {
   type ContributionPoint,
   type Contributions,
   type PluginManifest,
+  type PluginPermission,
 } from "../../packages/plugin-api/src/index";
 
 // 服务实现体（纯模块，不依赖 cordis）
@@ -135,12 +136,28 @@ const coreServices: { name: ServiceName; inject: string[]; impl: ImplFactory }[]
 // RootRuntime
 // ============================================================================
 
+/** 服务 → 所需权限（服务级粒度；方法级粒度为后续增强） */
+const SERVICE_PERMISSION: Record<ServiceName, PluginPermission[]> = {
+  "memflow.config": [],
+  "memflow.db": ["storage"],
+  "memflow.scheduler": ["scheduler"],
+  "memflow.cloud": ["cloud.read", "cloud.write"],
+  "memflow.review": ["storage"],
+  "memflow.auth": ["storage"],
+  "memflow.ui": ["ui"],
+};
+
 class PluginContextImpl implements PluginContext {
+  private readonly permissions: Set<PluginPermission>;
   constructor(
     private readonly rt: RuntimeImpl,
     readonly name: string,
-    private readonly ctx: Context
-  ) {}
+    private readonly ctx: Context,
+    permissionList: PluginPermission[] | undefined,
+    private readonly trusted: boolean
+  ) {
+    this.permissions = new Set(permissionList ?? []);
+  }
 
   on(event: string, handler: (payload: never) => void): void {
     this.ctx.on(event as never, handler as never);
@@ -166,6 +183,17 @@ class PluginContextImpl implements PluginContext {
   }
 
   service<T = unknown>(name: ServiceName): T {
+    if (!this.trusted) {
+      const required = SERVICE_PERMISSION[name] ?? [];
+      const granted = required.length === 0 || required.some((p) => this.permissions.has(p));
+      if (!granted) {
+        throw new Error(
+          "插件 " + this.name + " 缺少访问 " + name + " 的权限（需声明 permissions: [" +
+          required.join(" / ") +
+          "] 之一）"
+        );
+      }
+    }
     return (this.ctx as unknown as Record<string, unknown>)[name] as unknown as T;
   }
 }
@@ -192,17 +220,19 @@ class RuntimeImpl implements RootRuntime {
   mount(
     manifestOrName: PluginManifest | string,
     apply: (ctx: PluginContext) => void | Promise<void>,
-    inject?: string[]
+    inject?: string[],
+    opts?: { trusted?: boolean }
   ): Promise<PluginHandle> {
     const manifest: PluginManifest =
       typeof manifestOrName === "string"
         ? { name: manifestOrName, version: "0.0.0", displayName: manifestOrName }
         : validateManifest(manifestOrName);
     const manifestName = manifest.name;
+    const trusted = opts?.trusted ?? false;
     const plugin = {
       inject,
       apply: (ctx: Context) => {
-        const pctx = new PluginContextImpl(this, manifestName, ctx);
+        const pctx = new PluginContextImpl(this, manifestName, ctx, manifest.permissions, trusted);
         return apply(pctx) as never;
       },
     };

@@ -7,8 +7,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-/** 是否为打包产物（等价 electron app.isPackaged；CLI 下恒为 true 语义） */
+/** 是否为打包产物（等价 electron app.isPackaged；CLI 下恒为 true 语义）。
+ * MEMFLOW_DEV_MODE=1 强制开发模式（测试/CLI 调试外部插件时放行未签名包）。 */
 export function isPackaged(): boolean {
+  if (process.env.MEMFLOW_DEV_MODE === "1") return false;
   return !(process as unknown as { defaultApp?: string | boolean }).defaultApp;
 }
 

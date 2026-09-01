@@ -56,7 +56,7 @@ describe("RootRuntime", () => {
     await rt.mount("com.test.inject", (ctx: PluginContext) => {
       const db = ctx.service("memflow.db");
       order.push(typeof (db as { setSyncMeta: unknown }).setSyncMeta === "function" ? "db-ready" : "db-missing");
-    }, ["memflow.db"]);
+    }, ["memflow.db"], { trusted: true });
     expect(order).toEqual(["db-ready"]);
   });
 

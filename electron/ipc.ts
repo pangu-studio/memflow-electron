@@ -13,6 +13,7 @@ import * as review from "./review";
 import * as cloud from "./cloud";
 import * as cli from "./cli";
 import { initFeaturePlugins, listPlugins, setPluginEnabledCommand } from "./plugins";
+import { loadExternalPlugins } from "./externalPlugins";
 import { EVENT_CONTRIBUTIONS_CHANGED } from "./core/events";
 
 type Handler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
@@ -221,6 +222,7 @@ const initPromise = (async () => {
       setPluginEnabledCommand(runtime, str(a.name), Boolean(a.enabled))
     );
     ctx.registerCommand("get_contributions", () => runtime.contributions());
+    // builtin 恒为 trusted（权限全量）
     // 贡献点变化 → 广播全部窗口（renderer UI Registry 增量刷新）。
     // 纯 Node 环境（测试/CLI）无窗口，守卫跳过。
     ctx.on(EVENT_CONTRIBUTIONS_CHANGED, () => {
@@ -235,8 +237,9 @@ const initPromise = (async () => {
         // no-op（非 Electron 环境）
       }
     });
-  });
+  }, undefined, { trusted: true });
   await initFeaturePlugins(runtime);
+  await loadExternalPlugins(runtime);
 })();
 
 export async function initIpc(): Promise<void> {

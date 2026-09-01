@@ -6,6 +6,7 @@
 import type { PluginContext } from "../core/pluginApi";
 import type { RootRuntime } from "../core/pluginApi";
 import { isPluginEnabled, setPluginEnabled } from "../pluginConfig";
+import { listExternalPlugins, injectForPermissions } from "../externalPlugins";
 import { validateManifest, type PluginManifest } from "../../packages/plugin-api/src/index";
 import * as market from "./market";
 import * as stats from "./stats";
@@ -32,11 +33,16 @@ export const featurePlugins: BuiltinPlugin[] = [
   { manifest: markdownExtras.manifest, apply: markdownExtras.apply },
 ];
 
+/** 全部可管理插件（内置功能插件 + 外部目录插件） */
+export function allManageablePlugins(): BuiltinPlugin[] {
+  return [...featurePlugins, ...listExternalPlugins()];
+}
+
 /** 启动时按配置挂载功能插件 */
 export async function initFeaturePlugins(rt: RootRuntime): Promise<void> {
   for (const p of featurePlugins) {
     if (isPluginEnabled(p.manifest)) {
-      await rt.mount(p.manifest, p.apply, p.manifest.inject);
+      await rt.mount(p.manifest, p.apply, p.manifest.inject, { trusted: true });
     }
   }
 }
@@ -52,7 +58,7 @@ export interface PluginInfo {
 }
 
 export function listPlugins(rt: RootRuntime): PluginInfo[] {
-  return featurePlugins.map((p) => ({
+  return allManageablePlugins().map((p) => ({
     name: p.manifest.name,
     displayName: p.manifest.displayName,
     version: p.manifest.version,
@@ -65,12 +71,14 @@ export function listPlugins(rt: RootRuntime): PluginInfo[] {
 
 /** 动态启停；core 插件拒绝。返回操作后状态。 */
 export async function setPluginEnabledCommand(rt: RootRuntime, name: string, enabled: boolean): Promise<PluginInfo> {
-  const plugin = featurePlugins.find((p) => p.manifest.name === name);
+  const builtin = featurePlugins.find((p) => p.manifest.name === name);
+  const external = builtin ? undefined : listExternalPlugins().find((p) => p.manifest.name === name);
+  const plugin = builtin ?? external;
   if (!plugin) throw new Error(`未知插件: ${name}`);
   if (plugin.manifest.core) throw new Error("核心插件不可禁用");
   setPluginEnabled(name, enabled);
   if (enabled && !rt.isMounted(name)) {
-    await rt.mount(plugin.manifest, plugin.apply, plugin.manifest.inject);
+    await rt.mount(plugin.manifest, plugin.apply, injectForPermissions(plugin.manifest), { trusted: !!builtin });
   } else if (!enabled && rt.isMounted(name)) {
     await rt.unmount(name);
   }

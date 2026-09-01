@@ -46,8 +46,14 @@ export interface PluginHandle {
 }
 
 export interface RootRuntime {
-  /** 挂载插件；返回就绪的 handle。inject 声明本插件需要的服务（未就绪会等待）。 */
-  mount(manifest: import("../../packages/plugin-api/src/index").PluginManifest | string, apply: (ctx: PluginContext) => void | Promise<void>, inject?: string[]): Promise<PluginHandle>;
+  /** 挂载插件；返回就绪的 handle。inject 声明本插件需要的服务（未就绪会等待）。
+   * opts.trusted=true（内置/核心插件）全量权限；否则按 manifest.permissions 门控 service()。 */
+  mount(
+    manifest: import("../../packages/plugin-api/src/index").PluginManifest | string,
+    apply: (ctx: PluginContext) => void | Promise<void>,
+    inject?: string[],
+    opts?: { trusted?: boolean }
+  ): Promise<PluginHandle>;
   /** 卸载插件（dispose：命令/贡献点/事件自动清理） */
   unmount(manifestName: string): Promise<void>;
   isMounted(manifestName: string): boolean;
