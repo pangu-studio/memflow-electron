@@ -1,0 +1,12 @@
+[
+  {
+    "front": "法国的首都是 {{c1::巴黎}}。",
+    "card_type": "cloze",
+    "sort_order": 1
+  },
+  {
+    "front": "水的化学式是 {{c1::H₂O}}，由 {{c2::氢}} 和 {{c2::氧}} 组成。",
+    "card_type": "cloze",
+    "sort_order": 2
+  }
+]

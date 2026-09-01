@@ -1,0 +1,20 @@
+[
+  {
+    "front": "apple 的中文是什么？",
+    "back": "苹果",
+    "card_type": "qa",
+    "sort_order": 1
+  },
+  {
+    "front": "「巧合」用英语怎么说？",
+    "back": "coincidence\n\n例：What a coincidence! 真巧！",
+    "card_type": "qa",
+    "sort_order": 2
+  },
+  {
+    "front": "英语中 **affect** 和 **effect** 的区别？",
+    "back": "- **affect**：动词，影响（The weather affected our plans.）\n- **effect**：名词，效果/影响（The effect was immediate.）",
+    "card_type": "qa",
+    "sort_order": 3
+  }
+]

@@ -44,9 +44,16 @@ MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 
 ## 里程碑
 
+```bash
+npm run dist          # 全平台安装包（release/）
+npm run rebuild:sqlite  # Electron ABI 变更后重建原生模块（build.npmRebuild 已关，electron-builder 不再自动重建）
+```
+
+
 - [x] M1.1 壳跑通（脚手架 + 全命令移植 + 类型检查 + 冒烟）
 - [x] M1.1+ IPC 参数归一化（camelCase→snake_case，对齐 Tauri v2 行为）
 - [x] TS 版 memflow-cli v1（status/auth/review/decks/cards/groups/quota，node:sqlite 回退）
 - [ ] M1.2 核心链路联调（复习/评分/outbox/409，按 docs/parity.md 验收）
 - [ ] M1.3 功能 parity（市场/会员/多账号/快捷键）
-- [ ] M1.4 electron-builder 三平台发布 + release 模块登记
+- [x] M1.4 electron-builder 配置（mac dmg/win nsis/linux AppImage，`--mac --dir` 产物已验证）+ 自动更新模块（复用 /api/release/desktop/latest，sha256 校验 + 系统对话框确认安装）
+- [ ] M1.4 正式发版：图标、代码签名、上传 OSS + release 模块登记（admin 操作）

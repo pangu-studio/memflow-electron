@@ -13,6 +13,7 @@ import * as cmdCards from "../commands/cards";
 import * as cmdGroups from "../commands/groups";
 import * as cmdQuota from "../commands/quota";
 import * as cmdStatus from "../commands/status";
+import * as cmdSkill from "../commands/skill";
 
 /** 打印 JSON 到 stdout */
 export function printJson(value: unknown): void {
@@ -105,7 +106,7 @@ export async function main(): Promise<void> {
         await cmdStatus.run(flags);
         break;
       case "skill":
-        printError("skill 子命令尚未移植（skills/memflow 内容分发，见 Rust 版 memflow-cli）");
+        await cmdSkill.run(sub, args);
         break;
       case undefined:
       case "help":

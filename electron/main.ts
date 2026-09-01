@@ -5,6 +5,7 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
 import { initDb } from "./db";
 import { dispatch, registerModuleCommands } from "./ipc";
+import { autoUpdateOnLaunch } from "./update";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -61,6 +62,8 @@ app.whenReady().then(() => {
   initDb();
   registerIpc();
   createWindow();
+  // 打包版启动后自动检查更新（复用云端 /api/release/desktop/latest）
+  if (app.isPackaged) void autoUpdateOnLaunch();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

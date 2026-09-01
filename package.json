@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "dist": "npm run build && electron-builder",
     "rebuild:sqlite": "node-gyp rebuild --target=34.5.8 --arch=arm64 --dist-url=https://electronjs.org/headers --directory node_modules/better-sqlite3",
-    "build:cli": "esbuild cli/bin/memflow.ts --bundle --platform=node --format=cjs --outfile=out/cli/memflow.cjs --external:better-sqlite3"
+    "build:cli": "esbuild cli/bin/memflow.ts --bundle --platform=node --format=cjs --outfile=out/cli/memflow.cjs --external:better-sqlite3 --loader:.md=text --loader:.json=json"
   },
   "dependencies": {
     "@nssai/scheduler": "^0.1.0",
@@ -54,5 +54,64 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.5.0",
     "vite": "^7.3.0"
+  },
+  "build": {
+    "appId": "com.pangustudio.desktop",
+    "productName": "MemFlow",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "dist/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.education",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "MemFlow-${version}-${arch}.dmg"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "MemFlow-Setup-${version}-${arch}.exe"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "Education"
+    },
+    "appImage": {
+      "artifactName": "MemFlow-${version}-${arch}.AppImage"
+    },
+    "npmRebuild": false
   }
 }
