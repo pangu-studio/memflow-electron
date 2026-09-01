@@ -35,6 +35,12 @@ npm run dev              # vite :1420 + electron 热重载
 MEMFLOW_ELECTRON_ARGS="--no-sandbox" MEMFLOW_DATA_DIR=/tmp/memflow-e npm run dev
 ```
 
+## 网络调试（抓包）
+
+- **dev 模式**：纯 REST 命令（cloud_* / auth REST / market 浏览 / submit_review）由 renderer 直接发 fetch——DevTools Network 面板可见；console 标注 `[rest] <cmd>` / `[ipc] <cmd>`。base 覆盖：`localStorage.memflow_api_base`（默认 `http://localhost:8080`）
+- **生产模式**：恒走主进程 IPC（`window.memflowInvoke`）
+- 有状态命令（token/账号/outbox/api_env/文件对话框）任何模式都走 IPC
+
 ## 与 Tauri 版的关系
 
 - 前端 `src/` 从 `memflow-desktop/src` 复制，仅 `@tauri-apps/api/*` 导入替换为 `@/lib/invoke` 与 `@/lib/window` 桥接层

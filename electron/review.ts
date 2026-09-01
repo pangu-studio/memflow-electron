@@ -180,3 +180,6 @@ export async function flushPendingReviews(
 export function getPendingReviewCount(userId: string): number {
   return db.countPendingReviews(userId);
 }
+
+// ---- renderer dev 直连模式用的 outbox 原子操作（经由 IPC） ----
+export { enqueueReview as enqueueEvent, dequeueReview as dequeueEvent } from "./db";

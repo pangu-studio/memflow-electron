@@ -4,6 +4,12 @@
  */
 import { resolveApiBase } from "./config";
 
+// 进程级 base 覆盖（renderer dev 直连模式由 invoke 桥设置）
+let baseOverride: string | null = null;
+export function setApiBaseOverride(base: string | null): void {
+  baseOverride = base;
+}
+
 export class ApiHttpError extends Error {
   constructor(
     public status: number,
@@ -25,7 +31,7 @@ async function request<T>(
   path: string,
   opts: { token?: string; body?: unknown; params?: Record<string, string | undefined> }
 ): Promise<T> {
-  const base = resolveApiBase();
+  const base = baseOverride ?? resolveApiBase();
   let url = `${base}${path}`;
   if (opts.params) {
     const qs = Object.entries(opts.params)

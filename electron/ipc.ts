@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { createScheduler } from "@nssai/scheduler";
 import * as config from "./config";
 import * as auth from "./auth";
+import * as authStore from "./authStore";
 import * as review from "./review";
 import * as cloud from "./cloud";
 import * as market from "./market";
@@ -113,6 +114,9 @@ export const commands: Record<string, Handler> = {
       a.desired_retention as number | undefined
     ),
   get_pending_review_count: (a) => review.getPendingReviewCount(str(a.user_id)),
+  // renderer dev 直连接口的 outbox 写入（write-ahead 语义保持）
+  outbox_enqueue: (a) => { review.enqueueEvent(a.event as never, str(a.user_id)); return null; },
+  outbox_dequeue: (a) => { review.dequeueEvent(str(a.review_id)); return null; },
 
   // ---- auth ----
   auth_request_qr: () => auth.authRequestQr(),
@@ -120,14 +124,14 @@ export const commands: Record<string, Handler> = {
   auth_email_login: (a) => auth.authEmailLogin(str(a.email), str(a.password)),
   auth_bind_email: (a) => auth.authBindEmail(str(a.token), str(a.email), str(a.password)),
   auth_get_profile: (a) => auth.authGetProfile(str(a.token)),
-  auth_save_token: (a) => auth.authSaveToken(str(a.token)),
-  auth_load_token: () => auth.authLoadToken(),
-  auth_clear_token: () => auth.authClearToken(),
-  auth_list_accounts: () => auth.authListAccounts(),
+  auth_save_token: (a) => authStore.authSaveToken(str(a.token)),
+  auth_load_token: () => authStore.authLoadToken(),
+  auth_clear_token: () => authStore.authClearToken(),
+  auth_list_accounts: () => authStore.authListAccounts(),
   auth_register_account: (a) =>
-    auth.authRegisterAccount(str(a.token), a.profile as Parameters<typeof auth.authRegisterAccount>[1]),
-  auth_switch_account: (a) => auth.authSwitchAccount(str(a.key)),
-  auth_remove_account: (a) => auth.authRemoveAccount(str(a.key)),
+    authStore.authRegisterAccount(str(a.token), a.profile as Parameters<typeof authStore.authRegisterAccount>[1]),
+  auth_switch_account: (a) => authStore.authSwitchAccount(str(a.key)),
+  auth_remove_account: (a) => authStore.authRemoveAccount(str(a.key)),
 
   // ---- api env ----
   get_api_env: () => getApiEnv(),
