@@ -184,12 +184,28 @@ const restHandlers: Record<string, (a: Record<string, unknown>) => Promise<unkno
 /**
  * devInvoke：dev 模式入口。命中 REST 表 → renderer 直连（console 标注 [rest]）；
  * 否则 → IPC（[ipc]）。未登录态等存储命令自然落到 IPC。
+ *
+ * 参数归一化：渲染端按 Tauri v2 约定传 camelCase，生产路径由
+ * electron/ipc.ts 的 dispatch() 统一转 snake_case；restHandlers 同样读
+ * snake_case 键，因此这里必须先做同样的归一化，否则 dev 下全链路
+ * undefined（典型：auth_poll_qr 轮询 /qr/state/undefined）。
  */
+function camelToSnakeKey(s: string): string {
+  return s.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase());
+}
+
+function normalizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(args)) out[camelToSnakeKey(k)] = v;
+  return out;
+}
+
 export async function devInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const norm = normalizeArgs(args ?? {});
   // 插件管理命令会改变启停状态，透传后失效缓存
   if (cmd === "list_plugins" || cmd === "set_plugin_enabled") {
     invalidatePluginCache();
-    return window.memflowInvoke!<T>(cmd, args ?? {});
+    return window.memflowInvoke!<T>(cmd, norm);
   }
   const handler = restHandlers[cmd];
   if (handler) {
@@ -197,9 +213,9 @@ export async function devInvoke<T>(cmd: string, args?: Record<string, unknown>):
     if (owner && !(await ensureEnabled()).has(owner)) {
       throw new Error(`未知命令: ${cmd}`);
     }
-    console.debug(`[rest] ${cmd}`, args ?? {});
-    return (await handler(args ?? {})) as T;
+    console.debug(`[rest] ${cmd}`, norm);
+    return (await handler(norm)) as T;
   }
   console.debug(`[ipc] ${cmd}`);
-  return window.memflowInvoke!<T>(cmd, args ?? {});
+  return window.memflowInvoke!<T>(cmd, norm);
 }
