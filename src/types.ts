@@ -60,7 +60,7 @@ export interface TreeNodeData {
   id: string;
   name: string;
   type: "deck" | "group";
-  path: string;
+  /** 待复习数；分组节点为含子分组的聚合值（buildTree 时计算） */
   count?: number;
   suspended?: boolean;
   children?: TreeNodeData[];
