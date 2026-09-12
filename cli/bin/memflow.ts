@@ -69,11 +69,14 @@ export function parseGlobalFlags(argv: string[]): { flags: GlobalFlags; rest: st
 
 /**
  * 解析当前 token（与桌面端共享存储）。
+ * MEMFLOW_TOKEN 环境变量优先（服务器/CI 注入，不落盘）；否则读共享存储。
  * env_mismatch：token 登录环境与当前环境不一致（Rust 侧有提示，此处透传元数据）。
  */
 export function resolveToken(): { token: string; env_mismatch?: boolean } {
+  const envToken = process.env.MEMFLOW_TOKEN?.trim();
+  if (envToken) return { token: envToken, env_mismatch: false };
   const stored = authToken.load();
-  if (!stored) printError("未登录：请先运行 memflow auth token <TOKEN> 或在桌面端登录");
+  if (!stored) printError("未登录：请先运行 memflow auth login、memflow auth token <TOKEN> 或设置 MEMFLOW_TOKEN");
   const cur = currentEnvKey();
   return { token: stored.token, env_mismatch: !!stored.env && !!cur && stored.env !== cur };
 }
