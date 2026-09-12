@@ -41,10 +41,15 @@ export async function authRequestQr(): Promise<QRStateResponse> {
   return api.post<QRStateResponse>("/api/auth/wechat/qr/state");
 }
 
+/** 单次轮询二维码状态（CLI 终端登录用；GUI 用 authPollQr 长轮询） */
+export async function authPollQrOnce(qrId: string): Promise<QRPollResponse> {
+  return api.get<QRPollResponse>(`/api/auth/wechat/qr/state/${qrId}`);
+}
+
 /** 轮询二维码状态：每 1 秒一次，最多 300 次（5 分钟）；scanned 也立即返回供前端展示遮罩 */
 export async function authPollQr(qrId: string): Promise<QRPollResponse> {
   for (let i = 0; i < 300; i++) {
-    const poll = await api.get<QRPollResponse>(`/api/auth/wechat/qr/state/${qrId}`);
+    const poll = await authPollQrOnce(qrId);
     if (poll.status === "authorized" || poll.status === "expired" || poll.status === "scanned") {
       return poll;
     }
